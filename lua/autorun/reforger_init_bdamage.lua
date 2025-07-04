@@ -45,7 +45,7 @@ end)
 -- Global Update.
 
 hook.Add("PlayerInitialSpawn", "Reforger.CheckPlayerFramework", function(ply)
-    timer.Simple(5, function()
+    timer.Simple(1, function()
         if not IsValid(ply) then return end
 
         if rawget(_G, "Reforger") == nil or not istable(Reforger) then
