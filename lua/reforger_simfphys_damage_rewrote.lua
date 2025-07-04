@@ -5,8 +5,6 @@ local function Simfphys_RewriteProjectileDamage(proj)
 		proj.Damage = 0.35 * proj.Damage
 		proj.BlastDamage = 0.35 * proj.BlastDamage
 	end
-
-	print(proj.Damage, proj.BlastDamage)
 end
 
 local function Simfphys_OnTakeDamage(self, dmginfo)
