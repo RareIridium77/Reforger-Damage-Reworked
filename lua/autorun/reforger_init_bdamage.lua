@@ -49,7 +49,7 @@ hook.Add("PlayerInitialSpawn", "Reforger.CheckPlayerFramework", function(ply)
         if not IsValid(ply) then return end
 
         if rawget(_G, "Reforger") == nil or not istable(Reforger) then
-            ply:ChatPrint("[Reforger] Required Reforger Framework is missing. Please install it")
+            ply:ChatPrint("[Reforger] Required Reforger Framework is missing. Please install it here: https://steamcommunity.com/sharedfiles/filedetails/?id=3516478641")
             ply:SendLua([[ gui.OpenURL("https://steamcommunity.com/sharedfiles/filedetails/?id=3516478641") ]])
         end
     end)
