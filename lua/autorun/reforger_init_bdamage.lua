@@ -1,6 +1,5 @@
 if CLIENT then return end -- I'am overthinker
 
-
 -- After Reforger will Initialized addon starts working
 
 hook.Add("Reforger.Init", "Reforger.DamageModule", function()
