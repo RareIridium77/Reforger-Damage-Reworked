@@ -41,3 +41,16 @@ hook.Add("PlayerSpawn", "Reforger.ResetBurnStatusOnRespawn", function(ply)
     if not IsValid(ply) then return end
     ply:SetNWBool("Reforger.IsBurning", false)
 end)
+
+-- Global Update.
+
+hook.Add("PlayerInitialSpawn", "Reforger.CheckPlayerFramework", function(ply)
+    timer.Simple(5, function()
+        if not IsValid(ply) then return end
+
+        if rawget(_G, "Reforger") == nil or not istable(Reforger) then
+            ply:ChatPrint("[Reforger] Required Reforger Framework is missing. Please install it")
+            ply:SendLua([[ gui.OpenURL("https://steamcommunity.com/sharedfiles/filedetails/?id=3516478641") ]])
+        end
+    end)
+end)
