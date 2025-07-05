@@ -19,7 +19,7 @@ local function Glide_AirplaneDamage(self, dmginfo)
 
     if not istable(self.rotors) then return end
 
-    local rotor = Reforger.FindClosestByClass(self, dmginfo, "glide_rotor")
+    local rotor = Reforger.FindRotorsAlongRay(self, dmginfo)
 
     if not IsValid(rotor) then return end
 
@@ -42,10 +42,11 @@ local function Glide_OnTakeDamage( self, dmginfo )
     local IsFireDamage = dmginfo:IsDamageType( DMG_BURN ) or dmginfo:IsDamageType( DMG_DIRECT )
     local IsCollisionDamage = dmginfo:IsDamageType(DMG_CRUSH)
     local IsSmallDamage = dmginfo:IsDamageType( DMG_BULLET ) or dmginfo:IsDamageType( DMG_CLUB ) or dmginfo:IsDamageType( DMG_BUCKSHOT )
+    local Type = Reforger.GetVehicleType(self)
 
     -- End
     
-    if self.VehicleType == VehicleTypes.PLANE then
+    if Type == "plane" or Type == "helicopter" then
         Glide_AirplaneDamage(self, dmginfo)
     end
 
@@ -54,7 +55,7 @@ local function Glide_OnTakeDamage( self, dmginfo )
     if not IsSmallDamage or IsFireDamage then
         local multiplier = 1
 
-        if self.VehicleType == VehicleTypes.MOTORCYCLE then
+        if self.VehicleType == VehicleTypes.MOTORCYCLE then -- special situation for motorcycle
             multiplier = 3
         end
 
@@ -79,7 +80,7 @@ local function Glide_OnTakeDamage( self, dmginfo )
 
     -- Damage players
     
-    if IsSmallDamage and not dmginfo:IsDamageType(DMG_CLUB) and self.VehicleType ~= VehicleTypes.TANK then Reforger.DamagePlayer(self, dmginfo) end
+    if IsSmallDamage and not dmginfo:IsDamageType(DMG_CLUB) and Type ~= "armored" then Reforger.DamagePlayer(self, dmginfo) end
 
     -- End
 
@@ -88,7 +89,7 @@ local function Glide_OnTakeDamage( self, dmginfo )
     local CurHealth = self:GetChassisHealth()
 
     if IsSmallDamage and CurHealth <= 3.5 and CurHealth >= 1 then return end
-    if IsSmallDamage and self.VehicleType == VehicleTypes.TANK then return end
+    if IsSmallDamage and Type == "armored" then return end
 
     local NewHealth = math.Clamp( CurHealth - Damage, 0, self.MaxChassisHealth )
 
