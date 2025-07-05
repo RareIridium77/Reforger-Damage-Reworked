@@ -14,23 +14,6 @@ local function Glide_GetReducedDamage(self, dmg)
     return dmg * (VehicleType_Reduce[self.VehicleType] or 1)
 end
 
-local function Glide_AirplaneDamage(self, dmginfo)
-    if not IsValid(self) then return end
-
-    if not istable(self.rotors) then return end
-
-    local rotor = Reforger.FindRotorsAlongRay(self, dmginfo)
-
-    if not IsValid(rotor) then return end
-
-    rotor.rotorHealth = rotor.rotorHealth - dmginfo:GetDamage() / 2
-
-    if rotor.rotorHealth <= 0 and isfunction(rotor.Destroy) then
-        rotor:Destroy()
-        Reforger.DevLog("Rotor destroyed: " .. tostring(rotor))
-    end
-end
-
 local function Glide_OnTakeDamage( self, dmginfo )
     if self.hasExploded then return end
 
@@ -47,7 +30,7 @@ local function Glide_OnTakeDamage( self, dmginfo )
     -- End
     
     if Type == "plane" or Type == "helicopter" then
-        Glide_AirplaneDamage(self, dmginfo)
+        Reforger.RotorsGetDamage(self, dmginfo)
     end
 
     -- Engine Damage
