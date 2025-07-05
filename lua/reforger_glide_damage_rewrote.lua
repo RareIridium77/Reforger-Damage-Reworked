@@ -29,10 +29,6 @@ local function Glide_OnTakeDamage( self, dmginfo )
 
     -- End
     
-    if Type == "plane" or Type == "helicopter" then
-        Reforger.RotorsGetDamage(self, dmginfo)
-    end
-
     -- Engine Damage
 
     if not IsSmallDamage or IsFireDamage then
@@ -42,13 +38,17 @@ local function Glide_OnTakeDamage( self, dmginfo )
             multiplier = 3
         end
 
+        dmginfo:SetDamageForce(Vector(0, 0, 0))
+
         self:TakeEngineDamage( (Damage / self.MaxChassisHealth) * self.EngineDamageMultiplier * multiplier )
     end
 
     -- End
 
-    -- Burn Damage Players
+    --  Other Damage
+    Reforger.RotorsGetDamage(self, dmginfo)
     Reforger.ApplyPlayerFireDamage(self, dmginfo)
+
     -- End
 
     -- Damage Reduce
