@@ -7,7 +7,7 @@ if CLIENT then return end -- I'am overthinker
 
 -- After Reforger will Initialized addon starts working
 
-local Reforger_DamageModule()
+local function Reforger_DamageModule()
     if not istable(rawget(_G, "Reforger")) or not rawget(_G, "Reforger") then error("Reforger Base was not installed!") end
 
     local bases = { "lvs", "glide", "simfphys" }
