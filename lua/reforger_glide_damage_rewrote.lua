@@ -102,21 +102,30 @@ local function Glide_OnTakeDamage( self, dmginfo )
     end
 end
 
-local function Glide_RewriteDamageSystem(glide_veh)
-    if not IsValid(glide_veh) then return end
+local function Glide_RewriteDamageSystem(glide_object)
+    if not IsValid(glide_object) then return end
 
-    if glide_veh.IsGlideVehicle then
-        Reforger.DevLog(string.gsub("Overriding damage system for: +", "+", tostring(glide_veh)))
+    local class = glide_object:GetClass()
+
+    if class == "glide_gib" then
+        glide_object:SetCollisionGroup(COLLISION_GROUP_VEHICLE)
+        glide_object.Think = function()
+            return false 
+        end
+    end
+
+    if glide_object.IsGlideVehicle then
+        Reforger.DevLog(string.gsub("Overriding damage system for: +", "+", tostring(glide_object)))
 
         -- On Take Damage
-        glide_veh.OnTakeDamage = Glide_OnTakeDamage
+        glide_object.OnTakeDamage = Glide_OnTakeDamage
         -- End
 
         -- After Repair
-        local repairfunc = glide_veh.Repair
+        local repairfunc = glide_object.Repair
 
-        glide_veh.Repair = function(self)
-            glide_veh:RemoveAllDecals()
+        glide_object.Repair = function(self)
+            glide_object:RemoveAllDecals()
             
             repairfunc(self)
         end

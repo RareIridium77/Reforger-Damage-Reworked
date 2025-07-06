@@ -1,3 +1,5 @@
+local handler = include("lvs/lvs_damage_funcs.lua")
+
 local function LVS_OnTakeDamage(self, dmginfo)
     if self.CalcShieldDamage then self:CalcShieldDamage( dmginfo ) end
     if self.CalcDamage then self:CalcDamage( dmginfo ) end
@@ -5,194 +7,120 @@ local function LVS_OnTakeDamage(self, dmginfo)
     if self.OnAITakeDamage then self:OnAITakeDamage( dmginfo ) end
 end
 
-local function LVS_HandleDamageReduction(self, dmginfo)
-    if dmginfo:IsDamageType(self.DSArmorDamageReductionType) and dmginfo:GetDamage() > 0 then
-        dmginfo:ScaleDamage(self.DSArmorDamageReduction)
-        dmginfo:SetDamage(math.max(dmginfo:GetDamage(), 1))
-    end
-end
-
-local function LVS_HandleExplosionModifier(self, dmginfo, vehType)
-    local p = 0.1
-
-    if vehType == "light" then p = 0.25 end
-    if vehType == "plane" or vehType == "helicopter" then p = 0.2 end
-
-    if dmginfo:IsExplosionDamage() then
-        dmginfo:SetDamage(p * dmginfo:GetDamage())
-    end
-end
-
-local function LVS_HandleAirboatModifier(self, dmginfo)
-    if dmginfo:IsDamageType(DMG_AIRBOAT) then
-        dmginfo:SetDamage(0.125 * dmginfo:GetDamage())
-    end
-end
-
-local function LVS_HandleFireLogic(self, dmginfo, damage, critical, engineDying, ammorackDestroyed)
-    if self:IsOnFire() then return end
-
-    local curHP, maxHP = self:GetHP(), self:GetMaxHP()
-    local vehType = Reforger.GetVehicleType(self)
-
-    if engineDying and not self:IsOnFire() then
-        self:Ignite(10, self:BoundingRadius())
-    end
-
-    if dmginfo:IsExplosionDamage() and not self:IsOnFire() and (curHP / maxHP) < 0.5 then
-        self:Ignite(10, self:BoundingRadius())
-    end
-
-    if ammorackDestroyed and not self:IsOnFire() then
-        self:Ignite(10, self:BoundingRadius())
-    end
-end
-
 local function LVS_CalcDamage(self, dmginfo)
-    if self:IsDestroyed() then return end
+    if dmginfo:IsDamageType( self.DSArmorIgnoreDamageType ) then return end
 
-    if dmginfo:IsDamageType(self.DSArmorIgnoreDamageType) then return end
+    local vehType = Reforger.GetVehicleType()
+	local IsFireDamage = dmginfo:IsDamageType( DMG_BURN )
+	local IsCollisionDamage = dmginfo:GetDamageType() == ( DMG_CRUSH + DMG_VEHICLE )
+    local IsSmallDamage = dmginfo:GetDamageType() == ( DMG_CLUB + DMG_BULLET + DMG_BUCKSHOT )
+    local IsExplosion = dmginfo:IsExplosionDamage()
+    local IsAmmorackDestroyed = Reforger.IsAmmorackDestroyed( self )
+	local CriticalHit = false
 
-    local vehType = Reforger.GetVehicleType(self)
     local Engine = self.GetEngine and self:GetEngine() or nil
+    local EngineIsDying = IsValid(Engine) and (Engine:GetHP() / Engine:GetMaxHP()) < 0.25
+    
+    handler.LVS_HandleExplosionModifier(self, dmginfo, vehType)
+	handler.LVS_HandleDamageReduction(self, dmginfo)
+    handler.LVS_HandleAirboatModifier(self, dmginfo)
 
-    LVS_HandleDamageReduction(self, dmginfo)
-    LVS_HandleExplosionModifier(self, dmginfo)
-    LVS_HandleAirboatModifier(self, dmginfo)
+    local Damage = dmginfo:GetDamage()
 
-    Reforger.ApplyPlayerFireDamage(self, dmginfo)
+	if dmginfo:GetDamageForce():Length() < self.DSArmorIgnoreForce and not IsFireDamage then return end
 
-    if vehType == "plane" or vehType == "helicopter" then
-        Reforger.RotorsGetDamage(self, dmginfo)
-    end
+	if not IsCollisionDamage then
+		CriticalHit = self:CalcComponentDamage( dmginfo )
 
-    local damage = dmginfo:GetDamage()
-    local curHP, maxHP = self:GetHP(), self:GetMaxHP()
-    local isExplosion = dmginfo:IsExplosionDamage()
-    local isSmall = dmginfo:IsDamageType( DMG_BULLET ) or dmginfo:IsDamageType( DMG_CLUB ) or dmginfo:IsDamageType( DMG_BUCKSHOT )
-    local isCollision = dmginfo:GetDamageType() == ( DMG_CRUSH + DMG_VEHICLE )
-    local isFire = dmginfo:IsDamageType( DMG_BURN )
-    local isInDying = (curHP / maxHP) < 0.125
-    local ammorackDestroyed = Reforger.IsAmmorackDestroyed(self)
+        if CriticalHit and EngineIsDying then
+            Engine:Ignite(5, self:BoundingRadius())
 
-    local engineHPFrac = IsValid(Engine) and (Engine:GetHP() / Engine:GetMaxHP()) or 1
-    local engineDying = engineHPFrac < 0.32
+            if not Reforger.LVSGetDT(self, "Bool", "Reforger.InnerFire") then
+                Reforger.LVSSetDT(self, "Bool", "Reforger.Innter", true)
 
-    if vehType == "undefined" then 
-        isInDying = (curHP / maxHP) < 0.6
-    end
+                Reforger.AmmoracksTakeTransmittedDamage(self, dmginfo)
+                Reforger.DamageDamagableParts(self, dmginfo:GetDamage())
+            end
+        end
 
-    if not isFire and dmginfo:GetDamageForce():Length() < self.DSArmorIgnoreForce then -- fix
-        return
-    end
-
-    local critical = false
-    if not isCollision and not dmginfo:IsDamageType(DMG_CLUB) then
-        critical = self:CalcComponentDamage(dmginfo)
         Reforger.DamagePlayer(self, dmginfo)
+        Reforger.RotorsGetDamage(self, dmginfo)
+	end
+
+    if IsFireDamage then
+        handler.LVS_HandleFireLogic(self, dmginfo, Damage, CriticalHit, IsAmmorackDestroyed)
+        Reforger.ApplyPlayerFireDamage(self, dmginfo)
     end
 
-    if isExplosion and critical and IsValid(Engine) and not Engine:GetDestroyed() then
-        Engine:SetHP(math.max(1, Engine:GetHP() - damage))
-        if (Engine:GetHP() / Engine:GetMaxHP()) < 0.4 then
-            self:StopEngine()
-            if not self:IsOnFire() then
-                Engine:Ignite(10, Engine:BoundingRadius())
-            end
-            Engine:SetDestroyed(true)
-        end
+	if Damage <= 0 then return end
+
+    local MaxHealth = self:GetMaxHP()
+	local CurHealth = self:GetHP()
+
+    if not CriticalHit and IsSmallDamage then
+        Damage = 0.4 * Damage
     end
 
-    LVS_HandleFireLogic(self, dmginfo, damage, critical, engineDying, ammorackDestroyed)
-
-    if isFire and not critical and not isExplosion then
-        local transmittedDamage = dmginfo
-        transmittedDamage:SetDamage(0.1 * transmittedDamage:GetDamage())
-        Reforger.AmmoracksTakeTransmittedDamage(self, transmittedDamage)
+    if not CriticalHit and (CurHealth / MaxHealth) < 0.125 then
+        Damage = 0.25 * Damage
     end
 
-    curHP = self:GetHP()
-    if damage <= 0 then return end
+    local minClamp = -MaxHealth
 
-    if not critical and isSmall and not isFire then
-        damage = 1
-    elseif critical and isSmall then
-        damage = damage / 2
-    end
+    if IsExplosion then minClamp = MaxHealth * 0.1 end
 
-    if not critical and curHP <= 5 and curHP >= 1 and not isFire then
-        damage = 0.002 * damage
-    end
+	local NewHealth = math.Clamp( CurHealth - Damage, minClamp, MaxHealth )
+    
+	self:SetHP( NewHealth )
 
-    if vehType == "armored" and not isExplosion and not isFire and isInDying then
-        damage = 0.002 * damage
-    end
+	if self:IsDestroyed() then return end
 
-    Reforger.DevLog("Calculated Damage - "..damage)
+	local Attacker = dmginfo:GetAttacker() 
 
-    local newHP = math.Clamp(curHP - damage, -maxHP, maxHP)
+	if IsValid( Attacker ) and Attacker:IsPlayer() and not IsFireDamage then
+		net.Start( "lvs_hitmarker" )
+			net.WriteBool( CriticalHit )
+		net.Send( Attacker )
+	end
 
-    self:SetHP(newHP)
+	if Damage > 1 and not IsCollisionDamage and not IsFireDamage then
+		net.Start( "lvs_hurtmarker" )
+			net.WriteFloat( math.min( Damage / 50, 1 ) )
+		net.Send( self:GetEveryone() )
+	end
 
-    if self:IsDestroyed() then return end
+    if EngineIsDying and (NewHealth / MaxHealth) < 0.1 then Reforger.IgniteForever(self) end
 
-    local attacker = dmginfo:GetAttacker()
-    if IsValid(attacker) and attacker:IsPlayer() and not dmginfo:IsDamageType(DMG_BURN) then
-        net.Start("lvs_hitmarker")
-            net.WriteBool(critical)
-        net.Send(attacker)
-    end
+	if NewHealth <= 0 and (IsExplosion or IsFireDamage) then
+		self.FinalAttacker = dmginfo:GetAttacker() 
+		self.FinalInflictor = dmginfo:GetInflictor()
 
-    if damage > 1 and not isCollision and not dmginfo:IsDamageType(DMG_BURN) then
-        net.Start("lvs_hurtmarker")
-            net.WriteFloat(math.min(damage / 50, 1))
-        net.Send(self:GetEveryone())
-    end
+		self:SetDestroyed( false )
+		self:ClearPDS()
 
-    local explodeDelay = math.Clamp((self:GetVelocity():Length() - 200) / 200, 1.5, 16)
+		local Attacker = self.FinalAttacker
 
-    local isPlane = vehType == "plane" or vehType == "helicopter"
-    local isArmored = vehType == "armored"
-    local isLight = vehType == "light"
+		if IsValid( Attacker ) and Attacker:IsPlayer() then
+			net.Start( "lvs_killmarker" )
+			net.Send( Attacker )
+		end
 
-    if newHP <= 0 then
-        
-        if isArmored then
+		local ExplodeTime = self:PreExplode( math.Clamp((self:GetVelocity():Length() - 200) / 200, 1.5 ,16 ) )
 
-            if not self:IsOnFire() and not ammorackDestroyed then
-                self:Ignite(10, self:BoundingRadius())
-                explodeDelay = math.random(5, 10)
-
-            elseif self:IsOnFire() and isFire then
-                explodeDelay = 3
-
-            elseif ammorackDestroyed then
-                explodeDelay = 4
-            end
-
-        elseif isPlane and isCollision and self:IsOnFire() then
-            explodeDelay = 2
-
-        elseif isLight then
-            explodeDelay = 1
+        if vehType == "plane" or vehType == "helicopter" then
+            ExplodeTime = 10
         end
 
-        -- Взрыв
-        self.FinalAttacker = dmginfo:GetAttacker()
-        self.FinalInflictor = dmginfo:GetInflictor()
-        self:SetDestroyed(isCollision)
-        self:ClearPDS()
+        if (IsFireDamage) then ExplodeTime = (ExplodeTime + 1) * 4 end
 
-        if IsValid(self.FinalAttacker) and self.FinalAttacker:IsPlayer() then
-            net.Start("lvs_killmarker")
-            net.Send(self.FinalAttacker)
-        end
+		timer.Simple( ExplodeTime, function()
+			if not IsValid( self ) then return end
 
-        timer.Simple(explodeDelay, function()
-            if not IsValid(self) then return end
-            self:Explode()
-        end)
-    end
+            Reforger.StopInfiniteFire(self)
+
+			self:Explode()
+		end)
+	end
 end
 
 local function LVS_RewriteDamageSystem(lvs_entity)
@@ -200,7 +128,7 @@ local function LVS_RewriteDamageSystem(lvs_entity)
 
     if lvs_entity.LVS then
         Reforger.DevLog(string.gsub("Overriding damage system for: +", "+", tostring(lvs_entity)))
-        
+
         -- Rewriting decals
         local removealldecalsfunc = lvs_entity.RemoveAllDecals
 
@@ -261,10 +189,14 @@ local function LVS_RewriteDamageSystem(lvs_entity)
 
         -- Clear decals after full recover
         local onmainteance = lvs_entity.OnMaintenance
+        local onrepaired = lvs_entity.OnRepaired
+
         local Type = Reforger.GetVehicleType(self)
 
         lvs_entity.OnMaintenance = function(self, ...)
             self:ReforgerCleanDecals()
+
+            Reforger.StopInfiniteFire(self)
 
             if Type == "plane" and istable(self.rotors) and next(self.rotors) ~= nil then
                 for _, rotor in pairs(self.rotors) do
@@ -274,9 +206,21 @@ local function LVS_RewriteDamageSystem(lvs_entity)
                 end
             end
 
-            if onmainteance then
-                onmainteance(self, ...)
+            if onmainteance then onmainteance(self, ...) end
+        end
+
+        lvs_entity.OnRepaired = function(self, ...)
+            Reforger.StopInfiniteFire(self)
+
+            if Type == "plane" and istable(self.rotors) and next(self.rotors) ~= nil then
+                for _, rotor in pairs(self.rotors) do
+                    if rotor.Repair then
+                        rotor:Repair()
+                    end
+                end
             end
+
+            if onrepaired then onrepaired(self, ...) end
         end
 
         -- End

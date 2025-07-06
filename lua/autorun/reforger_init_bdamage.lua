@@ -1,8 +1,13 @@
+
+-- Convars
+AddCSLuaFile("reforger_bdamage_convars.lua")
+include("reforger_bdamage_convars.lua")
+
 if CLIENT then return end -- I'am overthinker
 
 -- After Reforger will Initialized addon starts working
 
-hook.Add("Reforger.Init", "Reforger.DamageModule", function()
+local Reforger_DamageModule()
     if not istable(rawget(_G, "Reforger")) or not rawget(_G, "Reforger") then error("Reforger Base was not installed!") end
 
     local bases = { "lvs", "glide", "simfphys" }
@@ -14,9 +19,9 @@ hook.Add("Reforger.Init", "Reforger.DamageModule", function()
         Reforger.DevLog(string.Replace(template, "#", b).." iuncluded")
         Reforger.AddEntityFunction(b.."_RewroteDamage", rewrite)
     end
-end)
+end
 
-hook.Add("Reforger.PlayerBurningInVehicle", "Reforger.PlayerBurningModule", function(ply, veh)
+local function Reforger_PlayerBurningModule(ply, veh)
     if not IsValid(ply) then return end
     if not IsValid(veh) then return end
 
@@ -26,31 +31,31 @@ hook.Add("Reforger.PlayerBurningInVehicle", "Reforger.PlayerBurningModule", func
         ply:SetNWBool("Reforger.IsBurning", true)
         Reforger.DevLog("Player " .. ply:Nick() .. " started to burn")
     end
-end)
+end
 
-hook.Add("PlayerLeaveVehicle", "Reforger.ResetBurnStatus", function(ply, veh)
+local function Reforger_ResetBurnStatus(ply, veh)
     if not IsValid(ply) then return end
 
     if ply:GetNWBool("Reforger.IsBurning", false) then
         ply:SetNWBool("Reforger.IsBurning", false)
         Reforger.DevLog("Player " .. ply:Nick() .. " stopped burning")
     end
-end)
+end
 
-hook.Add("PlayerSpawn", "Reforger.ResetBurnStatusOnRespawn", function(ply)
-    if not IsValid(ply) then return end
-    ply:SetNWBool("Reforger.IsBurning", false)
-end)
-
--- Global Update.
-
-hook.Add("PlayerInitialSpawn", "Reforger.CheckPlayerFramework", function(ply)
+local function Reforger_CheckPlayerFramework(ply)
     timer.Simple(1, function()
         if not IsValid(ply) then return end
 
         if rawget(_G, "Reforger") == nil or not istable(Reforger) then
             ply:ChatPrint("[Reforger] Required Reforger Framework is missing. Please install it here: https://steamcommunity.com/sharedfiles/filedetails/?id=3516478641")
-            ply:SendLua([[ gui.OpenURL("https://steamcommunity.com/sharedfiles/filedetails/?id=3516478641") ]])
+
+            timer.Simple(4, function() ply:SendLua([[ gui.OpenURL("https://steamcommunity.com/sharedfiles/filedetails/?id=3516478641") ]]) end)
         end
     end)
-end)
+end
+
+hook.Add("Reforger.Init", "Reforger.DamageModule", Reforger_DamageModule)
+hook.Add("Reforger.PlayerBurningInVehicle", "Reforger.PlayerBurningModule", Reforger_PlayerBurningModule)
+hook.Add("PlayerLeaveVehicle", "Reforger.ResetBurnStatus", Reforger_ResetBurnStatus)
+hook.Add("PlayerSpawn", "Reforger.ResetBurnStatusOnRespawn", Reforger_ResetBurnStatus)
+hook.Add("PlayerInitialSpawn", "Reforger.CheckPlayerFramework", Reforger_CheckPlayerFramework)

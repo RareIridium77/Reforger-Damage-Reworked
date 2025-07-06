@@ -2,8 +2,8 @@ local function Simfphys_RewriteProjectileDamage(proj)
 	if not IsValid(proj) then return end
 	
 	if proj.Damage and proj.BlastDamage then
-		proj.Damage = 0.35 * proj.Damage
-		proj.BlastDamage = 0.35 * proj.BlastDamage
+		proj.Damage = 0.15 * proj.Damage
+		proj.BlastDamage = 0.15 * proj.BlastDamage
 	end
 end
 
@@ -87,10 +87,22 @@ local function Simfphys_RewriteDamageSystem(simfphys_obj)
     if not IsValid(simfphys_obj) then return end
 
 	-- Rewriting simfphys tank projectile (THAT KILLS LVS TANKS WITH ONE SHOT)
-
-	if simfphys_obj:GetClass() == "simfphys_tankprojectile" then
+	local class = simfphys_obj:GetClass()
+	if class == "simfphys_tankprojectile" then
 		Reforger.DevLog(string.gsub("Overriding damage system for: +", "+", tostring(simfphys_obj)))
 		Simfphys_RewriteProjectileDamage(simfphys_obj)
+		return
+	end
+
+	if class == "gmod_sent_vehicle_fphysics_gib" then
+		Reforger.DevLog(string.gsub("Overriding damage system for: +", "+", tostring(simfphys_obj)))
+		
+		simfphys_obj:SetCollisionGroup(COLLISION_GROUP_VEHICLE)
+
+		simfphys_obj.Think = function()
+			return false
+		end
+		return 
 	end
 
     if simfphys_obj.IsSimfphyscar then
