@@ -9,78 +9,70 @@ end
 
 local function Simfphys_OnTakeDamage(self, dmginfo)
     if not self:IsInitialized() then return end
+	
+    if hook.Run("simfphysOnTakeDamage", self, dmginfo) then return end
 
-	if hook.Run( "simfphysOnTakeDamage", self, dmginfo ) then return end
+    local Damage = dmginfo:GetDamage()
+    local DamagePos = dmginfo:GetDamagePosition()
+    local Type = dmginfo:GetDamageType()
 
-	local Damage = dmginfo:GetDamage() 
-	local DamagePos = dmginfo:GetDamagePosition() 
-	local Type = dmginfo:GetDamageType()
+    self.LastAttacker = dmginfo:GetAttacker()
+    self.LastInflictor = dmginfo:GetInflictor()
 
-	self.LastAttacker = dmginfo:GetAttacker() 
-	self.LastInflictor = dmginfo:GetInflictor()
+    if simfphys.DamageEnabled then
+        local IsFireDamage = dmginfo:IsDamageType(DMG_BURN)
+        local IsExplosion = dmginfo:IsExplosionDamage()
+        local IsSmallDamage = dmginfo:IsDamageType(DMG_BULLET) or dmginfo:IsDamageType(DMG_CLUB) or dmginfo:IsDamageType(DMG_BUCKSHOT)
+        local CriticalHit = false
+        local OldHP = self:GetCurHealth()
+        local MaxHP = self:GetMaxHealth()
 
-	if simfphys.DamageEnabled then
-	    local IsFireDamage = dmginfo:IsDamageType( DMG_BURN )
-        local IsSmallDamage = dmginfo:IsDamageType( DMG_BULLET ) or dmginfo:IsDamageType( DMG_CLUB ) or dmginfo:IsDamageType( DMG_BUCKSHOT )
-		local CriticalHit = false
+        net.Start("simfphys_spritedamage")
+            net.WriteEntity(self)
+            net.WriteVector(self:WorldToLocal(DamagePos))
+            net.WriteBool(false)
+        net.Broadcast()
 
-		-- Networking
+        if (LVS and Type == DMG_AIRBOAT) or dmginfo:IsDamageType(DMG_BLAST) then
+            Type = DMG_DIRECT
+            Damage = 0.75 * Damage
+        end
 
-		net.Start( "simfphys_spritedamage" )
-			net.WriteEntity( self )
-			net.WriteVector( self:WorldToLocal( DamagePos ) ) 
-			net.WriteBool( false ) 
-		net.Broadcast()
+        if IsSmallDamage then
+            Damage = math.Rand(2, 5)
+        end
 
-		-- End
+        Reforger.ApplyPlayerFireDamage(self, dmginfo)
+        Reforger.DamagePlayer(self, dmginfo)
 
-		-- Damage Reducing
+        if IsSmallDamage and self.IsArmored then return end
 
-		if (LVS and Type == DMG_AIRBOAT) or dmginfo:IsDamageType( DMG_BLAST ) then
-			Type = DMG_DIRECT
-			Damage = 0.75 * Damage
-		end
+        if IsExplosion and (OldHP / MaxHP) < 0.3 and math.random() < 0.4 then
+            if not self:IsOnFire() then
+                Reforger.IgniteForever(self)
+                Reforger.DevLog("Inner Fire started on Simfphys vehicle!")
+            end
+        end
 
-        if IsSmallDamage then Damage = math.Rand(2, 5) end
-
-		-- End
-
-		-- Burn Damage Players
-		Reforger.ApplyPlayerFireDamage(self, dmginfo)
-		-- End
-
-		-- Applying Damage
-
-		local oldHP = self:GetCurHealth()
+        if IsSmallDamage and OldHP <= 3.5 and OldHP >= 1 then return end
 		
-		if IsSmallDamage and self.IsArmored then return end
-		Reforger.DamagePlayer(self, dmginfo)
+        self:ApplyDamage(Damage, Type)
 
-        if IsSmallDamage and oldHP <= 3.5 and oldHP >= 1 then return end
+        local NewHP = self:GetCurHealth()
+        if (NewHP / MaxHP) < 0.15 then
+            CriticalHit = true
+        end
 
-		self:ApplyDamage( Damage, Type )
+        if LVS and OldHP ~= NewHP and IsValid(self.LastAttacker) and self.LastAttacker:IsPlayer() and not IsFireDamage then
+            net.Start("lvs_hitmarker")
+                net.WriteBool(CriticalHit)
+            net.Send(self.LastAttacker)
+        end
 
-		-- End
-
-		-- Simfphys LVS integration
-
-		local newHP = self:GetCurHealth()
-
-		if (newHP / self:GetMaxHealth()) < 0.15 then
-			CriticalHit = true 
-		end
-
-		if not LVS then return end
-
-		if oldHP ~= newHP then
-			if IsValid( self.LastAttacker ) and self.LastAttacker:IsPlayer() and not IsFireDamage then
-				net.Start( "lvs_hitmarker" )
-					net.WriteBool( CriticalHit )
-				net.Send( self.LastAttacker )
-			end
-		end
-		-- End
-	end
+        if (NewHP / MaxHP) < 0.135 and not self:IsOnFire() and not IsExplosion then
+            Reforger.IgniteForever(self)
+        end
+    end
 end
 
 local function Simfphys_RewriteDamageSystem(simfphys_obj)
@@ -120,6 +112,8 @@ local function Simfphys_RewriteDamageSystem(simfphys_obj)
 
         simfphys_obj.OnRepaired = function(self)
 			self:RemoveAllDecals()
+
+			Reforger.StopInfiniteFire(self)
 			
 			if repairfunc then
 				repairfunc(self)

@@ -10,7 +10,7 @@ end
 local function LVS_CalcDamage(self, dmginfo)
     if dmginfo:IsDamageType( self.DSArmorIgnoreDamageType ) then return end
 
-    local vehType = Reforger.GetVehicleType()
+    local vehType = Reforger.GetVehicleType(self)
 	local IsFireDamage = dmginfo:IsDamageType( DMG_BURN )
 	local IsCollisionDamage = dmginfo:GetDamageType() == ( DMG_CRUSH + DMG_VEHICLE )
     local IsSmallDamage = dmginfo:GetDamageType() == ( DMG_CLUB + DMG_BULLET + DMG_BUCKSHOT )
@@ -19,7 +19,8 @@ local function LVS_CalcDamage(self, dmginfo)
 	local CriticalHit = false
 
     local Engine = self.GetEngine and self:GetEngine() or nil
-    local EngineIsDying = IsValid(Engine) and (Engine:GetHP() / Engine:GetMaxHP()) < 0.25
+    local EngineIsDying = IsValid(Engine) and (Engine:GetHP() / Engine:GetMaxHP()) < 0.35
+    local VehicleIsDying = (self:GetHP() / self:GetMaxHP()) < 0.35
     
     handler.LVS_HandleExplosionModifier(self, dmginfo, vehType)
 	handler.LVS_HandleDamageReduction(self, dmginfo)
@@ -32,14 +33,13 @@ local function LVS_CalcDamage(self, dmginfo)
 	if not IsCollisionDamage then
 		CriticalHit = self:CalcComponentDamage( dmginfo )
 
-        if CriticalHit and EngineIsDying then
-            Engine:Ignite(5, self:BoundingRadius())
-
-            if not Reforger.LVSGetDT(self, "Bool", "Reforger.InnerFire") then
-                Reforger.LVSSetDT(self, "Bool", "Reforger.Innter", true)
-
-                Reforger.AmmoracksTakeTransmittedDamage(self, dmginfo)
-                Reforger.DamageDamagableParts(self, dmginfo:GetDamage())
+        if IsExplosion and (EngineIsDying or VehicleIsDying) and math.random(0, 1) < 0.4 then -- 40% chance to Inner Fire
+            if not self:IsOnFire() then
+                if not Reforger.LVSGetDT(self, "Bool", "Reforger.InnerFire") then
+                    Reforger.LVSSetDT(self, "Bool", "Reforger.InnerFire", true)
+                    Reforger.IgniteForever(self)
+                    Reforger.DevLog("Inner Fire was started!")
+                end
             end
         end
 
@@ -48,11 +48,20 @@ local function LVS_CalcDamage(self, dmginfo)
 	end
 
     if IsFireDamage then
-        handler.LVS_HandleFireLogic(self, dmginfo, Damage, CriticalHit, IsAmmorackDestroyed)
+        handler.LVS_HandleFireLogic(self, IsAmmorackDestroyed)
         Reforger.ApplyPlayerFireDamage(self, dmginfo)
+
+        if self:IsOnFire() then
+            Reforger.AmmoracksTakeTransmittedDamage(self, dmginfo)
+            Reforger.DamageDamagableParts(self, dmginfo:GetDamage())
+        end
     end
 
 	if Damage <= 0 then return end
+
+    if IsFireDamage and IsAmmorackDestroyed then
+        Damage = 0.325 * Damage -- Reduce Ammorack given damage
+    end
 
     local MaxHealth = self:GetMaxHP()
 	local CurHealth = self:GetHP()
@@ -69,7 +78,22 @@ local function LVS_CalcDamage(self, dmginfo)
 
     if IsExplosion then minClamp = MaxHealth * 0.1 end
 
+    if (not self:IsOnFire() and not IsExplosion) and (EngineIsDying or VehicleIsDying) then
+        Damage = 0.1 * Damage
+        minClamp = MaxHealth * 0.1
+    end
+
 	local NewHealth = math.Clamp( CurHealth - Damage, minClamp, MaxHealth )
+
+    if NewHealth == minClamp and vehType ~= "armored" then
+        if not self:IsOnFire() then
+            Reforger.IgniteForever(self)
+
+            if not Reforger.LVSGetDT(self, "Bool", "Reforger.InnerFire") then
+                Reforger.LVSSetDT(self, "Bool", "Reforger.InnerFire", true)
+            end
+        end
+    end
     
 	self:SetHP( NewHealth )
 
@@ -95,7 +119,7 @@ local function LVS_CalcDamage(self, dmginfo)
 		self.FinalAttacker = dmginfo:GetAttacker() 
 		self.FinalInflictor = dmginfo:GetInflictor()
 
-		self:SetDestroyed( false )
+		self:SetDestroyed( IsCollisionDamage )
 		self:ClearPDS()
 
 		local Attacker = self.FinalAttacker
@@ -111,7 +135,11 @@ local function LVS_CalcDamage(self, dmginfo)
             ExplodeTime = 10
         end
 
-        if (IsFireDamage) then ExplodeTime = (ExplodeTime + 1) * 4 end
+        if IsAmmorackDestroyed then
+            ExplodeTime = ExplodeTime * 2
+        end
+
+        if IsFireDamage and not IsAmmorackDestroyed then ExplodeTime = (ExplodeTime + 1) * 4 end
 
 		timer.Simple( ExplodeTime, function()
 			if not IsValid( self ) then return end
