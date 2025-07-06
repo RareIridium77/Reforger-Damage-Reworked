@@ -143,8 +143,8 @@ local function LVS_RewriteDamageSystem(lvs_entity)
                     
                     -- removing from wheels (LVS Cars and LVS Planes)
 
-                    if Type == "light" or Type == "plane" then
-                        local wheels = self:GetWheels() or {}
+                    if Type == "light" or Type == "plane" or Type == "helicopter" then
+                        local wheels = self.GetWheels and self:GetWheels() or {}
 
                         if istable(wheels) and next(wheels) ~= nil then
 

@@ -88,13 +88,16 @@ local function Simfphys_RewriteDamageSystem(simfphys_obj)
 
 	-- Rewriting simfphys tank projectile (THAT KILLS LVS TANKS WITH ONE SHOT)
 	local class = simfphys_obj:GetClass()
+
 	if class == "simfphys_tankprojectile" then
 		Reforger.DevLog(string.gsub("Overriding damage system for: +", "+", tostring(simfphys_obj)))
 		Simfphys_RewriteProjectileDamage(simfphys_obj)
 		return
 	end
 
-	if class == "gmod_sent_vehicle_fphysics_gib" then
+    local allowgb = Reforger.SafeInt("keep_gibs") > 0
+
+	if class == "gmod_sent_vehicle_fphysics_gib" and allowgb then
 		Reforger.DevLog(string.gsub("Overriding damage system for: +", "+", tostring(simfphys_obj)))
 		
 		simfphys_obj:SetCollisionGroup(COLLISION_GROUP_VEHICLE)

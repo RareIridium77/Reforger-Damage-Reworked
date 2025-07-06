@@ -8,7 +8,9 @@ if CLIENT then return end -- I'am overthinker
 -- After Reforger will Initialized addon starts working
 
 local function Reforger_DamageModule()
-    if not istable(rawget(_G, "Reforger")) or not rawget(_G, "Reforger") then error("Reforger Base was not installed!") end
+    if not istable(_G.Reforger) then
+        error("Reforger Base was not installed!")
+    end
 
     local bases = { "lvs", "glide", "simfphys" }
     local template = "reforger_#_damage_rewrote.lua"
@@ -46,7 +48,7 @@ local function Reforger_CheckPlayerFramework(ply)
     timer.Simple(1, function()
         if not IsValid(ply) then return end
 
-        if rawget(_G, "Reforger") == nil or not istable(Reforger) then
+        if not istable(_G.Reforger) then
             ply:ChatPrint("[Reforger] Required Reforger Framework is missing. Please install it here: https://steamcommunity.com/sharedfiles/filedetails/?id=3516478641")
 
             timer.Simple(4, function() ply:SendLua([[ gui.OpenURL("https://steamcommunity.com/sharedfiles/filedetails/?id=3516478641") ]]) end)
