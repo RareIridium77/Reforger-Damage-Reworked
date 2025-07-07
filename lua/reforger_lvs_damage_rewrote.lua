@@ -50,7 +50,6 @@ local function LVS_CalcDamage(self, dmginfo)
 	end
 
     if IsFireDamage then
-        handler.LVS_HandleFireLogic(self, IsAmmorackDestroyed)
         Reforger.ApplyPlayerFireDamage(self, dmginfo)
 
         if self:IsOnFire() then
@@ -85,18 +84,18 @@ local function LVS_CalcDamage(self, dmginfo)
         minClamp = math.min(MaxHealth * 0.1, CurHealth)
     end
 
-    if IsAmmorackDestroyed then minClamp = -MaxHealth end
+    if IsAmmorackDestroyed or (IsFireDamage and self:IsOnFire()) then minClamp = -MaxHealth end
 
     -- End
 
 	local NewHealth = math.Clamp( CurHealth - Damage, minClamp, MaxHealth )
 
-    if NewHealth == minClamp and vehType ~= "armored" then
+    if (NewHealth < minClamp or ammorackDestroyed) and vehType == "armored" then
         if not self:IsOnFire() then
             Reforger.IgniteForever(self)
 
-            if not Reforger.LVSGetDT(self, "Bool", "Reforger.InnerFire") then
-                Reforger.LVSSetDT(self, "Bool", "Reforger.InnerFire", true)
+            if not Reforger.GetNetworkValue(self, "Bool", "InnerFire") then
+                Reforger.SetNetworkValue(self, "Bool", "InnerFire", true)
             end
         end
     end

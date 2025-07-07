@@ -9,7 +9,6 @@ return {
     LVS_HandleExplosionModifier = function(self, dmginfo, vehType)
         if dmginfo:IsExplosionDamage() then
             local p = 0.125
-
             
             if vehType ~= "armored" then p = 1 end -- ALWAYS FIRST
             
@@ -23,14 +22,6 @@ return {
     LVS_HandleAirboatModifier = function(self, dmginfo)
         if dmginfo:IsDamageType(DMG_AIRBOAT) then
             dmginfo:SetDamage(math.random(0.085, 0.2) * dmginfo:GetDamage()) -- can add some random for nostalgia
-        end
-    end,
-
-    LVS_HandleFireLogic = function(self, ammorackDestroyed)
-        if self:IsOnFire() then return end
-
-        if ammorackDestroyed then
-            Reforger.IgniteForever(self)
         end
     end
 }
