@@ -7,10 +7,21 @@ if CLIENT then return end -- I'am overthinker
 
 -- After Reforger will Initialized addon starts working
 
+local function Reforger_CheckPlayerFramework(ply)
+    timer.Simple(1, function()
+        if not IsValid(ply) then return end
+
+        if not istable(_G.Reforger) then
+            ply:ChatPrint("[Reforger] Required Reforger Framework is missing. Please install it here: https://steamcommunity.com/sharedfiles/filedetails/?id=3516478641")
+
+            timer.Simple(4, function() ply:SendLua([[ gui.OpenURL("https://steamcommunity.com/sharedfiles/filedetails/?id=3516478641") ]]) end)
+        end
+    end)
+end
+hook.Add("PlayerInitialSpawn", "Reforger.CheckPlayerFramework", Reforger_CheckPlayerFramework)
+
 local function Reforger_DamageModule()
-    if not istable(_G.Reforger) then
-        error("[Reforger] Base not installed!")
-    end
+    if Reforger.Disabled == true then return end
 
     local bases = { "lvs", "glide", "simfphys" }
     local template = "reforger_#_damage_rewrote.lua"
@@ -39,6 +50,8 @@ local function Reforger_DamageModule()
         end
     end
 end
+
+if not Reforger or Reforger.Disabled == true then return end
 
 local function IsPlayerBurning(ply)
     return Reforger.GetNetworkValue(ply, "Bool", "IsBurning")
@@ -69,20 +82,7 @@ local function Reforger_ResetBurnStatus(ply, veh)
     end
 end
 
-local function Reforger_CheckPlayerFramework(ply)
-    timer.Simple(1, function()
-        if not IsValid(ply) then return end
-
-        if not istable(_G.Reforger) then
-            ply:ChatPrint("[Reforger] Required Reforger Framework is missing. Please install it here: https://steamcommunity.com/sharedfiles/filedetails/?id=3516478641")
-
-            timer.Simple(4, function() ply:SendLua([[ gui.OpenURL("https://steamcommunity.com/sharedfiles/filedetails/?id=3516478641") ]]) end)
-        end
-    end)
-end
-
 hook.Add("Reforger.Init", "Reforger.DamageModule", Reforger_DamageModule)
 hook.Add("Reforger.PlayerBurningInVehicle", "Reforger.PlayerBurningModule", Reforger_PlayerBurningModule)
 hook.Add("PlayerLeaveVehicle", "Reforger.ResetBurnStatus", Reforger_ResetBurnStatus)
 hook.Add("PlayerSpawn", "Reforger.ResetBurnStatusOnRespawn", Reforger_ResetBurnStatus)
-hook.Add("PlayerInitialSpawn", "Reforger.CheckPlayerFramework", Reforger_CheckPlayerFramework)
