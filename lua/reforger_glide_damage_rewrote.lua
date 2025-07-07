@@ -1,3 +1,5 @@
+if not Glide then return end
+
 local VehicleTypes = Glide.VEHICLE_TYPE
 local VehicleType_Reduce = {
     [VehicleTypes.CAR] = 0.05,

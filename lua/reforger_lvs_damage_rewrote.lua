@@ -1,3 +1,5 @@
+if not LVS then return end
+
 local handler = include("lvs/lvs_damage_funcs.lua")
 
 local function LVS_OnTakeDamage(self, dmginfo)
@@ -32,6 +34,8 @@ local function LVS_CalcDamage(self, dmginfo)
 
 	if dmginfo:GetDamageForce():Length() < self.DSArmorIgnoreForce and not IsFireDamage then return end
 
+    if IsFireDamage then dmginfo:SetDamageForce(Vector(0, 0, 0)) end
+
 	if not IsCollisionDamage then
 		CriticalHit = self:CalcComponentDamage( dmginfo )
 
@@ -45,13 +49,13 @@ local function LVS_CalcDamage(self, dmginfo)
             end
         end
 
-        Reforger.HandleRayDamage(self, dmginfo)
-        Reforger.RotorsGetDamage(self, dmginfo)
 	end
 
-    if IsFireDamage then
-        Reforger.ApplyPlayerFireDamage(self, dmginfo)
+    Reforger.RotorsGetDamage(self, dmginfo)
+    Reforger.HandleRayDamage(self, dmginfo)
+    Reforger.ApplyPlayerFireDamage(self, dmginfo)
 
+    if IsFireDamage then
         if self:IsOnFire() then
             Reforger.AmmoracksTakeTransmittedDamage(self, dmginfo)
             Reforger.DamageDamagableParts(self, dmginfo:GetDamage())
@@ -82,6 +86,7 @@ local function LVS_CalcDamage(self, dmginfo)
     if (not self:IsOnFire() and not IsExplosion) and (EngineIsDying or VehicleIsDying) then
         Damage = 0.1 * Damage
         minClamp = math.min(MaxHealth * 0.1, CurHealth)
+        self.ReforgerCleanDecals(self)
     end
 
     if IsAmmorackDestroyed or (IsFireDamage and self:IsOnFire()) then minClamp = -MaxHealth end
@@ -102,7 +107,7 @@ local function LVS_CalcDamage(self, dmginfo)
     
 	self:SetHP( NewHealth )
 
-	if self:IsDestroyed() then return end
+	if self:IsDestroyed() or self.BlockDamage == true then return end
 
 	local Attacker = dmginfo:GetAttacker() 
 
@@ -148,6 +153,7 @@ local function LVS_CalcDamage(self, dmginfo)
 
 		timer.Simple( ExplodeTime, function()
 			if not IsValid( self ) then return end
+            self.BlockDamage = true
 
             Reforger.StopInfiniteFire(self)
 
@@ -230,6 +236,7 @@ local function LVS_RewriteDamageSystem(lvs_entity)
             self:ReforgerCleanDecals()
 
             Reforger.StopInfiniteFire(self)
+            self:Extinguish()
 
             if Type == "plane" and istable(self.rotors) and next(self.rotors) ~= nil then
                 for _, rotor in pairs(self.rotors) do
@@ -244,6 +251,7 @@ local function LVS_RewriteDamageSystem(lvs_entity)
 
         lvs_entity.OnRepaired = function(self, ...)
             Reforger.StopInfiniteFire(self)
+            self:Extinguish()
 
             if Type == "plane" and istable(self.rotors) and next(self.rotors) ~= nil then
                 for _, rotor in pairs(self.rotors) do

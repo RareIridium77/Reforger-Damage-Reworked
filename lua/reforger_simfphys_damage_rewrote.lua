@@ -1,3 +1,8 @@
+if not simfphys then return end
+
+local playerDamageConvar = GetConVar("sv_simfphys_playerdamage")
+local damageConvar = GetConVar("sv_simfphys_enabledamage")
+
 local function Simfphys_RewriteProjectileDamage(proj)
 	if not IsValid(proj) then return end
 	
@@ -9,7 +14,7 @@ end
 
 local function Simfphys_OnTakeDamage(self, dmginfo)
     if not self:IsInitialized() then return end
-    if not simfphys.DamageEnabled then return end
+    if not damageConvar:GetBool() then return end
 	
     if hook.Run("simfphysOnTakeDamage", self, dmginfo) then return end
     
@@ -42,7 +47,7 @@ local function Simfphys_OnTakeDamage(self, dmginfo)
         Damage = math.Rand(2, 5)
     end
 
-    Reforger.ApplyPlayerFireDamage(self, dmginfo)
+    if playerDamageConvar:GetBool() then Reforger.ApplyPlayerFireDamage(self, dmginfo) end
     Reforger.HandleCollisionDamage(self, dmginfo)
 
     if not IsSmallDamage and self.IsArmored then Reforger.HandleRayDamage(self, dmginfo) end

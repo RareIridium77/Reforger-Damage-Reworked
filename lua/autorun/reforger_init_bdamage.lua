@@ -9,17 +9,34 @@ if CLIENT then return end -- I'am overthinker
 
 local function Reforger_DamageModule()
     if not istable(_G.Reforger) then
-        error("Reforger Base was not installed!")
+        error("[Reforger] Base not installed!")
     end
 
     local bases = { "lvs", "glide", "simfphys" }
     local template = "reforger_#_damage_rewrote.lua"
 
     for _, b in ipairs(bases) do
-        local funcs = include( string.Replace(template, "#", b) )
-        local rewrite = funcs[1]
-        Reforger.DevLog(string.Replace(template, "#", b).." iuncluded")
-        Reforger.AddEntityFunction(b.."_RewroteDamage", rewrite)
+        local path = string.Replace(template, "#", b)
+        local exists = file.Exists(path, "LUA")
+
+        if not exists then
+            Reforger.DevLog("[WARN] File not found: " .. path)
+            continue
+        end
+
+        local ok, funcs = pcall(include, path)
+
+        if not ok then
+            Reforger.DevLog("[ERROR] Failed to include " .. path .. ": " .. tostring(funcs))
+            continue
+        end
+
+        if istable(funcs) and isfunction(funcs[1]) then
+            Reforger.AddEntityFunction(b .. "_RewroteDamage", funcs[1])
+            Reforger.DevLog("[Reforger] Damage hook loaded: " .. b)
+        else
+            Reforger.DevLog("[WARN] Invalid return from " .. path .. ", expected table with function at index 1")
+        end
     end
 end
 
