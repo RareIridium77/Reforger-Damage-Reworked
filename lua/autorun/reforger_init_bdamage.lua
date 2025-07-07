@@ -23,14 +23,22 @@ local function Reforger_DamageModule()
     end
 end
 
+local function IsPlayerBurning(ply)
+    return Reforger.GetNetworkValue(ply, "Bool", "IsBurning")
+end
+
+local function SetPlayerBurning(ply, state)
+    Reforger.SetNetworkValue(ply, "Bool", "IsBurning", state)
+end
+
 local function Reforger_PlayerBurningModule(ply, veh)
     if not IsValid(ply) then return end
     if not IsValid(veh) then return end
 
-    local alreadyBurning = ply:GetNWBool("Reforger.IsBurning", false)
+    local alreadyBurning = IsPlayerBurning(ply)
 
     if not alreadyBurning and veh:IsOnFire() then
-        ply:SetNWBool("Reforger.IsBurning", true)
+        SetPlayerBurning(ply, true)
         Reforger.DevLog("Player " .. ply:Nick() .. " started to burn")
     end
 end
@@ -38,8 +46,8 @@ end
 local function Reforger_ResetBurnStatus(ply, veh)
     if not IsValid(ply) then return end
 
-    if ply:GetNWBool("Reforger.IsBurning", false) then
-        ply:SetNWBool("Reforger.IsBurning", false)
+    if IsPlayerBurning(ply) then
+        SetPlayerBurning(ply, false)
         Reforger.DevLog("Player " .. ply:Nick() .. " stopped burning")
     end
 end

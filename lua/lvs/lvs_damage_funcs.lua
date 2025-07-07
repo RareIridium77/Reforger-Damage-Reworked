@@ -16,8 +16,6 @@ return {
             if vehType == "light" then p = 0.125 end
             if vehType == "plane" or vehType == "helicopter" then p = 0.145 end
             
-            Reforger.Log("Explosion Modified to ", p * dmginfo:GetDamage(), " from ", dmginfo:GetDamage())
-
             dmginfo:SetDamage(p * dmginfo:GetDamage())
         end
     end,

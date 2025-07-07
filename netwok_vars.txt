@@ -1,0 +1,4 @@
+Player:
+    Reforger.IsBurning
+
+Can get with Reforger.GetNetworkValue(player, "Bool", "IsBurning")

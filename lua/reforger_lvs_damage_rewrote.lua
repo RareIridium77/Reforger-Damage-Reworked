@@ -26,6 +26,8 @@ local function LVS_CalcDamage(self, dmginfo)
 	handler.LVS_HandleDamageReduction(self, dmginfo)
     handler.LVS_HandleAirboatModifier(self, dmginfo)
 
+    Reforger.HandleCollisionDamage(self, dmginfo)
+
     local Damage = dmginfo:GetDamage()
 
 	if dmginfo:GetDamageForce():Length() < self.DSArmorIgnoreForce and not IsFireDamage then return end
@@ -35,15 +37,15 @@ local function LVS_CalcDamage(self, dmginfo)
 
         if IsExplosion and (EngineIsDying or VehicleIsDying) and math.random(0, 1) < 0.4 then -- 40% chance to Inner Fire
             if not self:IsOnFire() then
-                if not Reforger.LVSGetDT(self, "Bool", "Reforger.InnerFire") then
-                    Reforger.LVSSetDT(self, "Bool", "Reforger.InnerFire", true)
+                if not Reforger.GetNetworkValue(self, "Bool", "InnerFire") then
+                    Reforger.SetNetworkValue(self, "Bool", "InnerFire", true)
                     Reforger.IgniteForever(self)
                     Reforger.DevLog("Inner Fire was started!")
                 end
             end
         end
 
-        Reforger.DamagePlayer(self, dmginfo)
+        Reforger.HandleRayDamage(self, dmginfo)
         Reforger.RotorsGetDamage(self, dmginfo)
 	end
 
@@ -74,14 +76,18 @@ local function LVS_CalcDamage(self, dmginfo)
         Damage = 0.25 * Damage
     end
 
+    -- Damage Clamping
+    
     local minClamp = -MaxHealth
-
-    if IsExplosion then minClamp = MaxHealth * 0.1 end
 
     if (not self:IsOnFire() and not IsExplosion) and (EngineIsDying or VehicleIsDying) then
         Damage = 0.1 * Damage
-        minClamp = MaxHealth * 0.1
+        minClamp = math.min(MaxHealth * 0.1, CurHealth)
     end
+
+    if IsAmmorackDestroyed then minClamp = -MaxHealth end
+
+    -- End
 
 	local NewHealth = math.Clamp( CurHealth - Damage, minClamp, MaxHealth )
 
@@ -115,7 +121,7 @@ local function LVS_CalcDamage(self, dmginfo)
 
     if EngineIsDying and (NewHealth / MaxHealth) < 0.1 then Reforger.IgniteForever(self) end
 
-	if NewHealth <= 0 and (IsExplosion or IsFireDamage) then
+	if NewHealth <= 0 or NewHealth <= 0 and vehType == "armored" and IsFireDamage then
 		self.FinalAttacker = dmginfo:GetAttacker() 
 		self.FinalInflictor = dmginfo:GetInflictor()
 

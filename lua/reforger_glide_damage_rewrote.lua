@@ -48,6 +48,7 @@ local function Glide_OnTakeDamage( self, dmginfo )
     --  Other Damage
     Reforger.RotorsGetDamage(self, dmginfo)
     Reforger.ApplyPlayerFireDamage(self, dmginfo)
+    Reforger.HandleCollisionDamage(self, dmginfo)
 
     -- End
 
@@ -63,7 +64,7 @@ local function Glide_OnTakeDamage( self, dmginfo )
 
     -- Damage players
     
-    if IsSmallDamage and not dmginfo:IsDamageType(DMG_CLUB) and Type ~= "armored" then Reforger.DamagePlayer(self, dmginfo) end
+    if IsSmallDamage and not dmginfo:IsDamageType(DMG_CLUB) and Type ~= "armored" then Reforger.HandleRayDamage(self, dmginfo) end
 
     -- End
 
