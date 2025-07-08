@@ -47,15 +47,22 @@ local function Simfphys_OnTakeDamage(self, dmginfo)
         Damage = math.Rand(2, 5)
     end
 
-    if playerDamageConvar:GetBool() then Reforger.ApplyPlayerFireDamage(self, dmginfo) end
+    if playerDamageConvar:GetBool() and IsFireDamage then Reforger.ApplyPlayersDamage(self, dmginfo) end
     Reforger.HandleCollisionDamage(self, dmginfo)
 
-    if not IsSmallDamage and self.IsArmored then Reforger.HandleRayDamage(self, dmginfo) end
+    if self.IsArmored then
+        if not IsSmallDamage then
+            Reforger.HandleRayDamage(self, dmginfo)
+        end
+    else
+        Reforger.HandleRayDamage(self, dmginfo)
+    end
+
     if IsSmallDamage and self.IsArmored then return end
 
     if IsExplosion and (OldHP / MaxHP) < 0.3 and math.random() < 0.4 then
         if not self:IsOnFire() then
-            Reforger.IgniteForever(self)
+            Reforger.IgniteLimited(self)
             Reforger.DevLog("Inner Fire started on Simfphys vehicle!")
         end
     end
@@ -76,7 +83,7 @@ local function Simfphys_OnTakeDamage(self, dmginfo)
     end
 
     if (NewHP / MaxHP) < 0.135 and not self:IsOnFire() and not IsExplosion then
-        Reforger.IgniteForever(self)
+        Reforger.IgniteLimited(self)
     end
 end
 
@@ -118,7 +125,7 @@ local function Simfphys_RewriteDamageSystem(simfphys_obj)
         simfphys_obj.OnRepaired = function(self)
 			self:RemoveAllDecals()
 
-			Reforger.StopInfiniteFire(self)
+			Reforger.StopLimitedFire(self)
 			
 			if repairfunc then
 				repairfunc(self)

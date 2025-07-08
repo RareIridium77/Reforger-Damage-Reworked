@@ -49,8 +49,11 @@ local function Glide_OnTakeDamage( self, dmginfo )
 
     --  Other Damage
     Reforger.RotorsGetDamage(self, dmginfo)
-    Reforger.ApplyPlayerFireDamage(self, dmginfo)
     Reforger.HandleCollisionDamage(self, dmginfo)
+
+    if IsFireDamage then
+        Reforger.ApplyPlayersDamage(self, dmginfo)
+    end
 
     -- End
 
@@ -97,10 +100,11 @@ local function Glide_OnTakeDamage( self, dmginfo )
 
     if fire_condition and not IsCollisionDamage then
         self:SetIsEngineOnFire( true )
-        self:Ignite(5, self:BoundingRadius())
+        Reforger.IgniteLimited(self)
     end
 
     if NewHealth <= 0 then
+        Reforger.StopLimitedFire(self)
         self:Explode( self.lastDamageAttacker, self.lastDamageInflictor )
     end
 end
@@ -130,7 +134,7 @@ local function Glide_RewriteDamageSystem(glide_object)
 
         glide_object.Repair = function(self)
             glide_object:RemoveAllDecals()
-            
+            Reforger.StopLimitedFire(self)
             repairfunc(self)
         end
         -- End
