@@ -30,10 +30,11 @@ local function LVS_CalcDamage(self, dmginfo)
     local vehType = Reforger.GetVehicleType(self) -- always return or cahce or recache
     local dmgType = dmginfo:GetDamageType()
 
-    local isFireDamage      = dmginfo:IsDamageType(DMG_BURN)
     local isExplosion       = dmginfo:IsExplosionDamage()
-    local isCollisionDamage = dmginfo:GetDamageType() == (DMG_CRUSH + DMG_VEHICLE)
-    local isSmallDamage     = bit.band(dmgType, DMG_BULLET + DMG_BUCKSHOT + DMG_CLUB) ~= 0
+    
+    local isFireDamage      = Reforger.IsFireDamageType(self, dmgType)
+    local isCollisionDamage = Reforger.IsCollisionDamageType(dmgType)
+    local isSmallDamage     = Reforger.IsSmallDamageType(dmgType)
 
     local criticalHit = false
 
@@ -45,8 +46,6 @@ local function LVS_CalcDamage(self, dmginfo)
     local maxHP = self:GetMaxHP()
     local curHP = self:GetHP()
     local vehicleIsDying = (curHP / maxHP) < 0.15
-
-    Reforger.HandleCollisionDamage(self, dmginfo)
 
     local damage = LVS_StartReduceDamage(self, dmginfo:GetDamage(), vehType, isExplosion)
     if damage <= 0 then return end
@@ -72,6 +71,7 @@ local function LVS_CalcDamage(self, dmginfo)
         end
     end
 
+    Reforger.HandleCollisionDamage(self, dmginfo)
     Reforger.RotorsGetDamage(self, dmginfo)
 
     if vehType == "armored" then
@@ -83,12 +83,23 @@ local function LVS_CalcDamage(self, dmginfo)
     end
 
     if isFireDamage then
-        if self:IsOnFire() then Reforger.ApplyPlayersDamage(self, dmginfo) end
-        
+        local shouldDamagePlayers =
+            (vehType == "armored" and self:IsOnFire()) or
+            (vehType ~= "armored")
+
+        if shouldDamagePlayers then
+            Reforger.ApplyPlayersDamage(self, dmginfo)
+        end
+
         self:ReforgerCleanDecals()
 
-        if math.random() < 0.5 then Reforger.AmmoracksTakeTransmittedDamage(self, dmginfo) end
-        if math.random() < 0.85 then Reforger.DamageDamagableParts(self, partDamage) end
+        if math.random() < 0.5 then
+            Reforger.AmmoracksTakeTransmittedDamage(self, dmginfo)
+        end
+
+        if math.random() < 0.85 then
+            Reforger.DamageDamagableParts(self, partDamage)
+        end
     end
 
     local isAmmorackDestroyed = Reforger.IsAmmorackDestroyed(self)

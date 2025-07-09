@@ -23,11 +23,13 @@ local function Glide_OnTakeDamage( self, dmginfo )
     if Damage <= 0 then return end
 
     -- Conditions
+    local DamageType        = dmginfo:GetDamageType()
 
-    local IsFireDamage = dmginfo:IsDamageType( DMG_BURN ) or dmginfo:IsDamageType( DMG_DIRECT )
-    local IsCollisionDamage = dmginfo:IsDamageType(DMG_CRUSH)
-    local IsSmallDamage = dmginfo:IsDamageType( DMG_BULLET ) or dmginfo:IsDamageType( DMG_CLUB ) or dmginfo:IsDamageType( DMG_BUCKSHOT )
-    local Type = Reforger.GetVehicleType(self)
+    local Type              = Reforger.GetVehicleType(self)
+    local Base              = Reforger.GetVehicleBase(self)
+    local IsFireDamage      = Reforger.IsFireDamageType(self, DamageType)
+    local IsCollisionDamage = Reforger.IsCollisionDamageType(DamageType)
+    local IsSmallDamage     = Reforger.IsSmallDamageType(DamageType)
 
     -- End
     

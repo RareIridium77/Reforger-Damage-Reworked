@@ -19,13 +19,14 @@ local function Simfphys_OnTakeDamage(self, dmginfo)
 	if not damageConvar:GetBool() then return end
 	if hook.Run("simfphysOnTakeDamage", self, dmginfo) then return end
 
-	local Damage = dmginfo:GetDamage()
-	local DamagePos = dmginfo:GetDamagePosition()
-	local Type = dmginfo:GetDamageType()
-	local IsExplosion = dmginfo:IsExplosionDamage()
-	local IsFireDamage = dmginfo:IsDamageType(DMG_BURN)
-	local IsSmallDamage = dmginfo:IsDamageType(DMG_BULLET) or dmginfo:IsDamageType(DMG_CLUB) or dmginfo:IsDamageType(DMG_BUCKSHOT)
-	local CriticalHit = false
+	local Damage        = dmginfo:GetDamage()
+	local DamagePos     = dmginfo:GetDamagePosition()
+	local Type          = dmginfo:GetDamageType()
+	local IsExplosion   = dmginfo:IsExplosionDamage()
+	local IsFireDamage  = Reforger.IsFireDamageType(self, Type)
+	local IsSmallDamage = Reforger.IsSmallDamageType(Type)
+
+	local CriticalHit   = false
 
 	local OldHP = self:GetCurHealth()
 	local MaxHP = self:GetMaxHealth()
@@ -51,8 +52,6 @@ local function Simfphys_OnTakeDamage(self, dmginfo)
 	if playerDamageConvar:GetBool() and IsFireDamage then
 		Reforger.ApplyPlayersDamage(self, dmginfo)
 	end
-
-	Reforger.HandleCollisionDamage(self, dmginfo)
 
 	if self.IsArmored then
 		if not IsSmallDamage then
@@ -91,8 +90,21 @@ local function Simfphys_OnTakeDamage(self, dmginfo)
 	end
 end
 
+-- FROM ORIGINAL SIMFPHYS 
+local function Spark( pos , normal , snd )
+	local effectdata = EffectData()
+	effectdata:SetOrigin( pos - normal )
+	effectdata:SetNormal( -normal )
+	util.Effect( "stunstickimpact", effectdata, true, true )
+	
+	if snd then
+		sound.Play( Sound( snd ), pos, 75)
+	end
+end
 
 -- IN MAIN CHANGES IS THAT COLLISION WILL SEND DMG_CRUSH NOT DMG_GENERIC
+local COLLISION_DAMAGE_SCALE = 0.15
+
 local function Simfphys_PhysicsCollide(self, data, physobj)
 	if hook.Run("simfphysPhysicsCollide", self, data, physobj) then return end
 
@@ -115,11 +127,13 @@ local function Simfphys_PhysicsCollide(self, data, physobj)
 
 		local function applyCollisionDamage(damageAmount)
 			local dmginfo = DamageInfo()
-			dmginfo:SetDamage(damageAmount)
+			dmginfo:SetDamage(damageAmount * COLLISION_DAMAGE_SCALE)
 			dmginfo:SetDamageType(damageType)
 			dmginfo:SetAttacker(self)
 			dmginfo:SetInflictor(self)
 			dmginfo:SetDamagePosition(pos)
+
+			Reforger.HandleCollisionDamage(self, dmginfo)
 
 			self:TakeDamageInfo(dmginfo)
 		end
