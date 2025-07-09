@@ -32,7 +32,7 @@ local function LVS_CalcDamage(self, dmginfo)
 
     local isFireDamage      = dmginfo:IsDamageType(DMG_BURN)
     local isExplosion       = dmginfo:IsExplosionDamage()
-    local isCollisionDamage = bit.band(dmgType, DMG_CRUSH + DMG_VEHICLE) ~= 0
+    local isCollisionDamage = dmginfo:GetDamageType() == (DMG_CRUSH + DMG_VEHICLE)
     local isSmallDamage     = bit.band(dmgType, DMG_BULLET + DMG_BUCKSHOT + DMG_CLUB) ~= 0
 
     local criticalHit = false
@@ -82,7 +82,6 @@ local function LVS_CalcDamage(self, dmginfo)
         Reforger.HandleRayDamage(self, dmginfo)
     end
 
-
     if isFireDamage then
         if self:IsOnFire() then Reforger.ApplyPlayersDamage(self, dmginfo) end
         
@@ -97,8 +96,18 @@ local function LVS_CalcDamage(self, dmginfo)
     if isFireDamage and isAmmorackDestroyed then
         if vehicleIsDying then
             damage = damage * 1.25
+        elseif math.random() < 0.35 then
+            damage = damage * 5
         else
             damage = 100 * 2.5
+        end
+
+        if not self:IsOnFire() and math.random() < 0.25 then
+            if not Reforger.GetNetworkValue(self, "Bool", "InnerFire") then
+                Reforger.SetNetworkValue(self, "Bool", "InnerFire", true)
+                Reforger.IgniteLimited(self, 10) -- sepcial situation
+                Reforger.DevLog("Inner Fire was started!")
+            end
         end
     end
 
