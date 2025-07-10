@@ -256,7 +256,7 @@ local function LVS_CalcDamage(self, dmginfo)
 
         if explodeDelay > 0 and isFireDamage and not isAmmorackDestroyed then
             explodeDelay = (explodeDelay + 1) * 4
-
+        end
 
         if isAmmorackDestroyed then
             self:StartInnerFire(1)
