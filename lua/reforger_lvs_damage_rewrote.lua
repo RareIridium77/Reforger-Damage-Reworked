@@ -180,7 +180,9 @@ local function LVS_CalcDamage(self, dmginfo)
         damage = 0.85 * damage
     end
 
-    if isAmmorackDestroyed then
+    --------------------------- In LVS standard ammorack gives 100 damage when it destroyes
+    --------------------------- Means ammorack doesn't exists but is giving damage (bug that I found while playing with tanks)
+    if isAmmorackDestroyed or (vehType == "armored" and isFireDamage and dmginfo:GetDamage() >= 50) then
         if vehicleIsDying then
             damage = damage * 1.25
         elseif math.random() < 0.35 then
@@ -190,6 +192,7 @@ local function LVS_CalcDamage(self, dmginfo)
         end
 
         if math.random() < 0.25 then self:StartInnerFire(5) end
+        isAmmorackDestroyed = true
     end
     
 
@@ -247,17 +250,17 @@ local function LVS_CalcDamage(self, dmginfo)
             self:StartInnerFire(1)
         end
 
-        if vehType == "plane" or vehType == "helicopter" then
+        if explodeDelay > 0 and vehType == "plane" or vehType == "helicopter" then
             explodeDelay = 3
         end
 
-        if isFireDamage and not isAmmorackDestroyed then
+        if explodeDelay > 0 and isFireDamage and not isAmmorackDestroyed then
             explodeDelay = (explodeDelay + 1) * 4
-        end
 
-        if vehType == "armored" and not isFireDamage then
-            explodeDelay = math.Rand(2, 10)
+
+        if isAmmorackDestroyed then
             self:StartInnerFire(1)
+            explodeDelay = math.Rand(1, 2)
         end
 
         explodeDelay = self:PreExplode(explodeDelay)
