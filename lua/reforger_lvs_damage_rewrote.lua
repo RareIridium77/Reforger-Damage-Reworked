@@ -117,10 +117,6 @@ local function LVS_StartReduceDamage(self, damage, vehType, isExplosion)
     return damage
 end
 
-local mineMultiplier = Reforger.SafeFloat("damage.mine.multiplier", 0.25)
-local mineMaxDamage = Reforger.SafeFloat("damage.mine.max", 100)
-local mineMinDamage = Reforger.SafeFloat("damage.mine.min", 1)
-
 local function LVS_CalcDamage(self, dmginfo)
     if self.GonnaDestroyed == true then return end
     if dmginfo:IsDamageType(self.DSArmorIgnoreDamageType) then return end
@@ -223,6 +219,10 @@ local function LVS_CalcDamage(self, dmginfo)
         if damage > curHP and not vehicleIsDying and not isAmmorackDestroyed then
             damage = math.Clamp(damage, curHP * 0.1, curHP * 0.95)
         elseif isMine then
+            local mineMultiplier = Reforger.SafeFloat("damage.mine.multiplier", 0.25)
+            local mineMaxDamage = Reforger.SafeFloat("damage.mine.max", 100)
+            local mineMinDamage = Reforger.SafeFloat("damage.mine.min", 1)
+
             Reforger.DevLog("Reducing damage for Mine")
             damage = math.Clamp(damage, mineMinDamage, mineMaxDamage) * mineMultiplier
         end
