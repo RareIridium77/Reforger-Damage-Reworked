@@ -114,14 +114,17 @@ end
 local function Glide_RewriteDamageSystem(glide_object)
     if not IsValid(glide_object) then return end
 
-    local allowgb = Reforger.SafeInt("keep_gibs") > 0
     local class = glide_object:GetClass()
 
-    if class == "glide_gib" and allowgb then
-        glide_object:SetCollisionGroup(COLLISION_GROUP_VEHICLE)
-        glide_object.Think = function()
-            return false 
+    if class == "glide_gib" then
+        local allowgb = Reforger.SafeInt("gibs.keep") > 0
+
+        if allowgb then
+			glide_object.reforgerGib = true
+            glide_object:SetCollisionGroup(COLLISION_GROUP_VEHICLE)
+            glide_object.Think = function() return false end
         end
+        return 
     end
 
     if glide_object.IsGlideVehicle then

@@ -82,7 +82,14 @@ local function Reforger_ResetBurnStatus(ply, veh)
     end
 end
 
+local function Reforger_FreezedGibsPickup(ply, ent)
+    if ent.reforgerGib then
+        return false
+    end
+end
+
 hook.Add("Reforger.Init", "Reforger.DamageModule", Reforger_DamageModule)
 hook.Add("Reforger.PlayerBurningInVehicle", "Reforger.PlayerBurningModule", Reforger_PlayerBurningModule)
 hook.Add("PlayerLeaveVehicle", "Reforger.ResetBurnStatus", Reforger_ResetBurnStatus)
 hook.Add("PlayerSpawn", "Reforger.ResetBurnStatusOnRespawn", Reforger_ResetBurnStatus)
+hook.Add("PhysgunPickup", "Reforger.FreezedGibsPickup", Reforger_FreezedGibsPickup)

@@ -174,12 +174,14 @@ local function Simfphys_RewriteDamageSystem(simfphys_obj)
 	end
 
 	-- Rewriting gibs (if allowed)
-	local allowgb = Reforger.SafeInt("keep_gibs") > 0
-	if class == "gmod_sent_vehicle_fphysics_gib" and allowgb then
-		Reforger.DevLog(string.gsub("Overriding damage system for: +", "+", tostring(simfphys_obj)))
+	if class == "gmod_sent_vehicle_fphysics_gib" and simfphys_obj.MakeSound == true then
+		local allowgb = Reforger.SafeInt("gibs.keep") > 0
 
-		simfphys_obj:SetCollisionGroup(COLLISION_GROUP_VEHICLE)
-		simfphys_obj.Think = function() return false end
+		if allowgb then
+			simfphys_obj.reforgerGib = true
+			simfphys_obj:SetCollisionGroup(COLLISION_GROUP_VEHICLE)
+			simfphys_obj.Think = function() return false end
+		end
 		return
 	end
 
