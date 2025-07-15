@@ -1,10 +1,11 @@
 if not simfphys then return end
 
+local D = Reforger.Damage
+
 -- ConVars
 local playerDamageConvar = GetConVar("sv_simfphys_playerdamage")
 local damageConvar = GetConVar("sv_simfphys_enabledamage")
 
---=== Projectile patch (LVS one-shot fix) ===--
 local function Simfphys_RewriteProjectileDamage(proj)
 	if not IsValid(proj) then return end
 
@@ -23,8 +24,8 @@ local function Simfphys_OnTakeDamage(self, dmginfo)
 	local DamagePos     = dmginfo:GetDamagePosition()
 	local Type          = dmginfo:GetDamageType()
 	local IsExplosion   = dmginfo:IsExplosionDamage()
-	local IsFireDamage  = Reforger.IsFireDamageType(self, Type)
-	local IsSmallDamage = Reforger.IsSmallDamageType(Type)
+	local IsFireDamage  = D.IsFireDamageType(self, Type)
+	local IsSmallDamage = D.IsSmallDamageType(Type)
 
 	local CriticalHit   = false
 
@@ -50,22 +51,22 @@ local function Simfphys_OnTakeDamage(self, dmginfo)
 	end
 
 	if playerDamageConvar:GetBool() and IsFireDamage then
-		Reforger.ApplyPlayersDamage(self, dmginfo)
+		D.ApplyPlayersDamage(self, dmginfo)
 	end
 
 	if self.IsArmored then
 		if not IsSmallDamage then
-			Reforger.HandleRayDamage(self, dmginfo)
+			D.HandleRayDamage(self, dmginfo)
 		end
 	else
-		Reforger.HandleRayDamage(self, dmginfo)
+		D.HandleRayDamage(self, dmginfo)
 	end
 
 	if IsSmallDamage and self.IsArmored then return end
 
 	if IsExplosion and (OldHP / MaxHP) < 0.3 and math.random() < 0.4 then
 		if not self:IsOnFire() then
-			Reforger.IgniteLimited(self)
+			D.IgniteLimited(self)
 			Reforger.DevLog("Inner Fire started on Simfphys vehicle!")
 		end
 	end
@@ -86,7 +87,7 @@ local function Simfphys_OnTakeDamage(self, dmginfo)
 	end
 
 	if (NewHP / MaxHP) < 0.135 and not self:IsOnFire() and not IsExplosion then
-		Reforger.IgniteLimited(self)
+		D.IgniteLimited(self)
 	end
 end
 
@@ -133,7 +134,7 @@ local function Simfphys_PhysicsCollide(self, data, physobj)
 			dmginfo:SetInflictor(self)
 			dmginfo:SetDamagePosition(pos)
 
-			Reforger.HandleCollisionDamage(self, dmginfo)
+			D.HandleCollisionDamage(self, dmginfo)
 
 			self:TakeDamageInfo(dmginfo)
 		end
@@ -195,7 +196,7 @@ local function Simfphys_RewriteDamageSystem(simfphys_obj)
 		local repairfunc = simfphys_obj.OnRepaired
 		simfphys_obj.OnRepaired = function(self)
 			self:RemoveAllDecals()
-			Reforger.StopLimitedFire(self)
+			D.StopLimitedFire(self)
 
 			if repairfunc then
 				repairfunc(self)
@@ -204,5 +205,4 @@ local function Simfphys_RewriteDamageSystem(simfphys_obj)
 	end
 end
 
---== Export ==--
 return { Simfphys_RewriteDamageSystem }

@@ -1,5 +1,8 @@
 if not Glide then return end
 
+local D = Reforger.Damage
+local R = Reforger.Rotors
+
 local VehicleTypes = Glide.VEHICLE_TYPE
 local VehicleType_Reduce = {
     [VehicleTypes.CAR] = 0.05,
@@ -27,9 +30,9 @@ local function Glide_OnTakeDamage( self, dmginfo )
 
     local Type              = Reforger.GetVehicleType(self)
     local Base              = Reforger.GetVehicleBase(self)
-    local IsFireDamage      = Reforger.IsFireDamageType(self, DamageType)
-    local IsCollisionDamage = Reforger.IsCollisionDamageType(DamageType)
-    local IsSmallDamage     = Reforger.IsSmallDamageType(DamageType)
+    local IsFireDamage      = D.IsFireDamageType(self, DamageType)
+    local IsCollisionDamage = D.IsCollisionDamageType(DamageType)
+    local IsSmallDamage     = D.IsSmallDamageType(DamageType)
 
     -- End
     
@@ -50,11 +53,11 @@ local function Glide_OnTakeDamage( self, dmginfo )
     -- End
 
     --  Other Damage
-    Reforger.RotorsGetDamage(self, dmginfo)
-    Reforger.HandleCollisionDamage(self, dmginfo)
+    R.RotorsGetDamage(self, dmginfo)
+    D.HandleCollisionDamage(self, dmginfo)
 
     if IsFireDamage then
-        Reforger.ApplyPlayersDamage(self, dmginfo)
+        D.ApplyPlayersDamage(self, dmginfo)
     end
 
     -- End
@@ -71,7 +74,7 @@ local function Glide_OnTakeDamage( self, dmginfo )
 
     -- Damage players
     
-    if IsSmallDamage and not dmginfo:IsDamageType(DMG_CLUB) and Type ~= "armored" then Reforger.HandleRayDamage(self, dmginfo) end
+    if IsSmallDamage and not dmginfo:IsDamageType(DMG_CLUB) and Type ~= "armored" then D.HandleRayDamage(self, dmginfo) end
 
     -- End
 
@@ -102,11 +105,11 @@ local function Glide_OnTakeDamage( self, dmginfo )
 
     if fire_condition and not IsCollisionDamage then
         self:SetIsEngineOnFire( true )
-        Reforger.IgniteLimited(self)
+        D.IgniteLimited(self)
     end
 
     if NewHealth <= 0 then
-        Reforger.StopLimitedFire(self)
+        D.StopLimitedFire(self)
         self:Explode( self.lastDamageAttacker, self.lastDamageInflictor )
     end
 end
@@ -139,7 +142,7 @@ local function Glide_RewriteDamageSystem(glide_object)
 
         glide_object.Repair = function(self)
             glide_object:RemoveAllDecals()
-            Reforger.StopLimitedFire(self)
+            D.StopLimitedFire(self)
             repairfunc(self)
         end
         -- End

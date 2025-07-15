@@ -1,6 +1,10 @@
 if not LVS then return end
 
-Reforger.LVS_DamageReducing = {
+local RDamage = Reforger.Damage
+local Rotors = Reforger.Rotors
+local Armored = Reforger.Armored
+
+local LVS_DamageReducing = {
     light = 1.25,
     plane = 0.145,
     helicopter = 0.145,
@@ -8,7 +12,7 @@ Reforger.LVS_DamageReducing = {
     undefined = 1
 }
 
-Reforger.LVS_InstantKillChance = {
+local LVS_InstantKillChance = {
     light = 0.85,
     plane = 0.5,
     helicopter = 0.5,
@@ -33,11 +37,12 @@ local function LVS_TryStartInnerFire(self, repeatCount)
         Reforger.SetNetworkValue(self, "Bool", "InnerFire", true)
 
         if isnumber(repeatCount) and repeatCount >= 1 then
-            Reforger.IgniteLimited(self, self:BoundingRadius(), repeatCount)
+            RDamage.IgniteLimited(self, self:BoundingRadius(), repeatCount)
         else
-            Reforger.IgniteLimited(self)
+            RDamage.IgniteLimited(self)
         end
 
+        Reforger.DevLog("Inner Fire Started on ", self)
         hook.Run("Reforger.InnerFireStarted", self, repeatCount)
         return true
     end
@@ -55,7 +60,7 @@ local function LVS_TryStopInnerFire(self)
         Reforger.SetNetworkValue(self, "Bool", "InnerFire", false)
 
         self:Extinguish()
-        Reforger.StopLimitedFire(self)
+        RDamage.StopLimitedFire(self)
 
         Reforger.DevLog("Inner Fire was stopped")
         hook.Run("Reforger.InnerFireStopped", self)
@@ -70,7 +75,7 @@ local function LVS_ExplodeWithDelay(self, delay, isCollision)
     timer.Simple(delay, function()
         if not IsValid(self) then return end
         
-        Reforger.StopLimitedFire(self)
+        RDamage.StopLimitedFire(self)
         
         self:SetDestroyed(isCollision)
         self:Explode()
@@ -111,9 +116,9 @@ local function LVS_ExplodeWithDelay(self, delay, isCollision)
 end
 
 local function LVS_StartReduceDamage(self, damage, vehType, isExplosion)
-    local p = Reforger.LVS_DamageReducing[vehType]
+    local p = LVS_DamageReducing[vehType]
 
-    if isExplosion then return p * damage end
+    if not isExplosion then return p * damage end
     return damage
 end
 
@@ -136,9 +141,9 @@ local function LVS_CalcDamage(self, dmginfo)
 
     local isExplosion       = dmginfo:IsExplosionDamage()
     
-    local isFireDamage      = Reforger.IsFireDamageType(self, dmgType)
-    local isCollisionDamage = Reforger.IsCollisionDamageType(dmgType)
-    local isSmallDamage     = Reforger.IsSmallDamageType(dmgType)
+    local isFireDamage      = RDamage.IsFireDamageType(self, dmgType)
+    local isCollisionDamage = RDamage.IsCollisionDamageType(dmgType)
+    local isSmallDamage     = RDamage.IsSmallDamageType(dmgType)
 
     local attacker          = dmginfo:GetAttacker()
     local inflictor         = dmginfo:GetInflictor()
@@ -178,7 +183,6 @@ local function LVS_CalcDamage(self, dmginfo)
 
         if not isMine and (isExplosion or curHP < -10) and (engineIsDying or vehicleIsDying) and math.random() < 0.5 then
             self:StartInnerFire(1)
-            Reforger.DevLog("Inner Fire was started!")
         end
     end
 
@@ -186,10 +190,10 @@ local function LVS_CalcDamage(self, dmginfo)
         criticalHit = true
     end
 
-    Reforger.RotorsGetDamage(self, dmginfo)
-    Reforger.HandleRayDamage(self, dmginfo)
+    Rotors.RotorsGetDamage(self, dmginfo)
+    RDamage.HandleRayDamage(self, dmginfo)
     
-    local isAmmorackDestroyed = Reforger.IsAmmorackDestroyed(self)
+    local isAmmorackDestroyed = Armored.IsAmmorackDestroyed(self)
 
     if isFireDamage and not isMine then
         self:ReforgerCleanDecals() -- for optimization of VFire
@@ -199,16 +203,16 @@ local function LVS_CalcDamage(self, dmginfo)
             (vehType ~= "armored")
 
         if shouldDamagePlayers then
-            Reforger.ApplyPlayersDamage(self, dmginfo)
+            RDamage.ApplyPlayersDamage(self, dmginfo)
         end
 
         if math.random() < 0.5 then
-            Reforger.AmmoracksTakeTransmittedDamage(self, dmginfo)
+            Armored.DamageAmmoracks(self, dmginfo)
         end
 
         if math.random() < 0.85 then
             local partDamage = math.min(0.5 * damage, 100)
-            Reforger.DamageDamagableParts(self, partDamage)
+            RDamage.DamageParts(self, partDamage)
         end
     end
 
@@ -235,7 +239,7 @@ local function LVS_CalcDamage(self, dmginfo)
         -- if damage is more than curHp for 60% then not damage components
         if damage < (curHP * 0.6) and math.random() < 0.5 and not isMine then
             local partDamage = math.min(0.95 * damage, 100)
-            Reforger.DamageDamagableParts(self, partDamage)
+            RDamage.DamageParts(self, partDamage)
         end
 
         damage = 0.085 * damage
@@ -259,7 +263,7 @@ local function LVS_CalcDamage(self, dmginfo)
             damage = damage * 0.75
         end
 
-        if not isMine and math.random() < 0.25 then self:StartInnerFire(5) Reforger.DevLog("Inner Fire was started!") end
+        if not isMine and math.random() < 0.25 then self:StartInnerFire(5) end
         isAmmorackDestroyed = true
     end
     
@@ -287,7 +291,7 @@ local function LVS_CalcDamage(self, dmginfo)
         self.FinalAttacker = attacker
     end
 
-    if engineIsDying and (newHP / maxHP) < 0.1 then Reforger.IgniteLimited(self) end
+    if engineIsDying and (newHP / maxHP) < 0.1 then RDamage.IgniteLimited(self) end
 
     if self.GonnaDestroyed == true then return end
 
@@ -301,7 +305,7 @@ local function LVS_CalcDamage(self, dmginfo)
             net.Send(attacker)
         end
 
-        local isInstantKill = (isExplosion and math.random() < Reforger.LVS_InstantKillChance[vehType]) or originalDamage > maxHP
+        local isInstantKill = (isExplosion and math.random() < LVS_InstantKillChance[vehType]) or originalDamage > maxHP
         local explodeDelay = math.Clamp((self:GetVelocity():Length() - 200) / 200, 1.5, 16)
 
         if isInstantKill then
@@ -311,7 +315,6 @@ local function LVS_CalcDamage(self, dmginfo)
         if explodeDelay > 0 and not isMine then
             if vehType == "light" and isExplosion then
                 self:StartInnerFire(1)
-                Reforger.DevLog("Inner Fire was started!")
             end
 
             if vehType == "armored" then
@@ -321,7 +324,6 @@ local function LVS_CalcDamage(self, dmginfo)
 
                 if not isAmmorackDestroyed then
                     self:StartInnerFire(4)
-                    Reforger.DevLog("Inner Fire was started!")
                     explodeDelay = math.Rand(10, 15)
                 end
             end
@@ -381,15 +383,10 @@ local function LVS_RewriteDamageSystem(ent)
 
     local oldMaintenance = ent.OnMaintenance
     ent.OnMaintenance = function(self, ...)
-        self:ReforgerCleanDecals()
-        Reforger.StopLimitedFire(self)
-        self:Extinguish()
+        RDamage.StopLimitedFire(self)
 
-        if vehType == "plane" and istable(self.rotors) then
-            for _, rotor in pairs(self.rotors) do
-                if rotor.Repair then rotor:Repair() end
-            end
-        end
+        self:ReforgerCleanDecals()
+        self:Extinguish()
 
         if oldMaintenance then oldMaintenance(self, ...) end
     end
@@ -398,8 +395,8 @@ local function LVS_RewriteDamageSystem(ent)
     ent.OnRepaired = function(self, ...)
         self:Extinguish()
 
-        Reforger.StopLimitedFire(self)
-        Reforger.RepairRotors(self)
+        RDamage.StopLimitedFire(self)
+        Rotors.RepairRotors(self)
 
         if oldRepaired then oldRepaired(self, ...) end
     end

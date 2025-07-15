@@ -1,4 +1,3 @@
-
 -- Convars
 AddCSLuaFile("reforger_bdamage_convars.lua")
 include("reforger_bdamage_convars.lua")
