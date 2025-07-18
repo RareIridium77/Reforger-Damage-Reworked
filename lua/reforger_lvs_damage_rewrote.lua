@@ -6,15 +6,15 @@ local Armored = Reforger.Armored
 
 local LVS_DamageReducing = {
     light = 1.25,
-    plane = 0.145,
-    helicopter = 0.145,
+    plane = 0.5,
+    helicopter = 0.45,
     armored = 1.2,
     undefined = 1
 }
 
 local LVS_InstantKillChance = {
     light = 0.85,
-    plane = 0.5,
+    plane = 0.7,
     helicopter = 0.5,
     armored = 0.2,
     undefined = 1
@@ -22,9 +22,15 @@ local LVS_InstantKillChance = {
 
 local function LVS_OnTakeDamage(self, dmginfo)
     self:CalcShieldDamage( dmginfo )
-	self:CalcDamage( dmginfo )
 	self:TakePhysicsDamage( dmginfo )
+	self:CalcDamage( dmginfo )
 	self:OnAITakeDamage( dmginfo )
+end
+
+local function IsAircraft(ent)
+    if not IsValid(ent) then return false end
+    local vehType = Reforger.GetVehicleType(self)
+    return vehType == "plane" or vehType == "helicopter"
 end
 
 local function LVS_TryStartInnerFire(self, repeatCount)
@@ -254,7 +260,7 @@ local function LVS_CalcDamage(self, dmginfo)
 
     --------------------------- In LVS standard ammorack gives 100 damage when it destroyes
     --------------------------- Means ammorack doesn't exists but is giving damage (bug that I found while playing with tanks)
-    if isAmmorackDestroyed or (vehType == "armored" and isFireDamage and dmginfo:GetDamage() >= 50) then
+    if isAmmorackDestroyed or (vehType == "armored" and isFireDamage and dmginfo:GetDamage() >= 75) then
         if vehicleIsDying then
             damage = damage * 1.25
         elseif math.random() < 0.35 then
@@ -379,7 +385,10 @@ local function LVS_RewriteDamageSystem(ent)
     ent.RemoveAllDecals = function() end
 
     ent.OnTakeDamage = LVS_OnTakeDamage
-    ent.CalcDamage    = LVS_CalcDamage
+    ent.CalcDamage = LVS_CalcDamage
+
+    ent.StartInnerFire = LVS_TryStartInnerFire
+    ent.StopInnerFire = LVS_TryStopInnerFire
 
     local oldMaintenance = ent.OnMaintenance
     ent.OnMaintenance = function(self, ...)
@@ -400,9 +409,6 @@ local function LVS_RewriteDamageSystem(ent)
 
         if oldRepaired then oldRepaired(self, ...) end
     end
-
-    ent.StartInnerFire = LVS_TryStartInnerFire
-    ent.StopInnerFire = LVS_TryStopInnerFire
 end
 
 return {LVS_RewriteDamageSystem}
