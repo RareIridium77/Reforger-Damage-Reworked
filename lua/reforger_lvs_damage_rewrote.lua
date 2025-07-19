@@ -6,8 +6,8 @@ local Armored = Reforger.Armored
 
 local LVS_DamageReducing = {
     light = 1.25,
-    plane = 0.5,
-    helicopter = 0.45,
+    plane = 1.8,
+    helicopter = 1.2,
     armored = 1.2,
     undefined = 1
 }
