@@ -1,7 +1,29 @@
 if not Glide then return end
 
-local D = Reforger.Damage
-local R = Reforger.Rotors
+local RDamage = Reforger.Damage
+local Rotors = Reforger.Rotors
+
+local getvehtype = Reforger.GetVehicleType
+local getvehbase = Reforger.GetVehicleBase
+
+local ignitelimited = RDamage.IgniteLimited
+local stopignitelimited = RDamage.StopLimitedFire
+
+local isfiredamage = RDamage.IsFireDamageType
+local iscollisiondamage = RDamage.IsCollisionDamageType
+local issmalldamage = RDamage.IsSmallDamageType
+
+local handleCollisionDamage = RDamage.HandleCollisionDamage
+local applyPlayersDamage = RDamage.ApplyPlayersDamage
+local handleRayDamage = RDamage.HandleRayDamage
+local rotorsTakeDamage = Rotors.RotorsTakeDamage
+
+local devlog   = Reforger.DevLog
+local safeint  = Reforger.SafeInt
+
+local istable  = istable
+local isnumber = isnumber
+local IsValid  = IsValid
 
 local VehicleTypes = Glide.VEHICLE_TYPE
 local VehicleType_Reduce = {
@@ -28,11 +50,11 @@ local function Glide_OnTakeDamage( self, dmginfo )
     -- Conditions
     local DamageType        = dmginfo:GetDamageType()
 
-    local Type              = Reforger.GetVehicleType(self)
-    local Base              = Reforger.GetVehicleBase(self)
-    local IsFireDamage      = D.IsFireDamageType(self, DamageType)
-    local IsCollisionDamage = D.IsCollisionDamageType(DamageType)
-    local IsSmallDamage     = D.IsSmallDamageType(DamageType)
+    local Type              = getvehtype(self)
+    local Base              = getvehbase(self)
+    local IsFireDamage      = isfiredamage(self, DamageType)
+    local IsCollisionDamage = iscollisiondamage(DamageType)
+    local IsSmallDamage     = issmalldamage(DamageType)
 
     -- End
     
@@ -53,11 +75,11 @@ local function Glide_OnTakeDamage( self, dmginfo )
     -- End
 
     --  Other Damage
-    R.RotorsGetDamage(self, dmginfo)
-    D.HandleCollisionDamage(self, dmginfo)
+    rotorsTakeDamage(self, dmginfo)
+    handleCollisionDamage(self, dmginfo)
 
     if IsFireDamage then
-        D.ApplyPlayersDamage(self, dmginfo)
+        applyPlayersDamage(self, dmginfo)
     end
 
     -- End
@@ -74,7 +96,7 @@ local function Glide_OnTakeDamage( self, dmginfo )
 
     -- Damage players
     
-    if IsSmallDamage and not dmginfo:IsDamageType(DMG_CLUB) and Type ~= "armored" then D.HandleRayDamage(self, dmginfo) end
+    if IsSmallDamage and not dmginfo:IsDamageType(DMG_CLUB) and Type ~= "armored" then handleRayDamage(self, dmginfo) end
 
     -- End
 
@@ -105,11 +127,11 @@ local function Glide_OnTakeDamage( self, dmginfo )
 
     if fire_condition and not IsCollisionDamage then
         self:SetIsEngineOnFire( true )
-        D.IgniteLimited(self)
+        ignitelimited(self)
     end
 
     if NewHealth <= 0 then
-        D.StopLimitedFire(self)
+        stopignitelimited(self)
         self:Explode( self.lastDamageAttacker, self.lastDamageInflictor )
     end
 end
@@ -120,7 +142,7 @@ local function Glide_RewriteDamageSystem(glide_object)
     local class = glide_object:GetClass()
 
     if class == "glide_gib" then
-        local allowgb = Reforger.SafeInt("gibs.keep") > 0
+        local allowgb = safeint("gibs.keep") > 0
 
         if allowgb then
 			glide_object.reforgerGib = true
@@ -131,7 +153,7 @@ local function Glide_RewriteDamageSystem(glide_object)
     end
 
     if glide_object.IsGlideVehicle then
-        Reforger.DevLog(string.gsub("Overriding damage system for: +", "+", tostring(glide_object)))
+        devlog(string.gsub("Overriding damage system for: +", "+", tostring(glide_object)))
 
         -- On Take Damage
         glide_object.OnTakeDamage = Glide_OnTakeDamage
@@ -142,7 +164,7 @@ local function Glide_RewriteDamageSystem(glide_object)
 
         glide_object.Repair = function(self)
             glide_object:RemoveAllDecals()
-            D.StopLimitedFire(self)
+            stopignitelimited(self)
             repairfunc(self)
         end
         -- End

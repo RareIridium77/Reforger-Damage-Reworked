@@ -1,6 +1,25 @@
 if not simfphys then return end
 
-local D = Reforger.Damage
+local RDamage = Reforger.Damage
+
+local isfiredamage = RDamage.IsFireDamageType
+local issmalldamage = RDamage.IsSmallDamageType
+
+local ignitelimited = RDamage.IgniteLimited
+local stopignitelimited = RDamage.StopLimitedFire
+
+local handleRayDamage = RDamage.HandleRayDamage
+local handleCollisionDamage = RDamage.HandleCollisionDamage
+local applyPlayersDamage = RDamage.ApplyPlayersDamage
+
+local devlog   = Reforger.DevLog
+local safeint  = Reforger.SafeInt
+
+local runhook  = hook.Run
+
+local istable  = istable
+local isnumber = isnumber
+local IsValid  = IsValid
 
 -- ConVars
 local playerDamageConvar = GetConVar("sv_simfphys_playerdamage")
@@ -18,14 +37,14 @@ end
 local function Simfphys_OnTakeDamage(self, dmginfo)
 	if not self:IsInitialized() then return end
 	if not damageConvar:GetBool() then return end
-	if hook.Run("simfphysOnTakeDamage", self, dmginfo) then return end
+	if runhook("simfphysOnTakeDamage", self, dmginfo) then return end
 
 	local Damage        = dmginfo:GetDamage()
 	local DamagePos     = dmginfo:GetDamagePosition()
 	local Type          = dmginfo:GetDamageType()
 	local IsExplosion   = dmginfo:IsExplosionDamage()
-	local IsFireDamage  = D.IsFireDamageType(self, Type)
-	local IsSmallDamage = D.IsSmallDamageType(Type)
+	local IsFireDamage  = RDamage.IsFireDamageType(self, Type)
+	local IsSmallDamage = RDamage.IsSmallDamageType(Type)
 
 	local CriticalHit   = false
 
@@ -51,23 +70,23 @@ local function Simfphys_OnTakeDamage(self, dmginfo)
 	end
 
 	if playerDamageConvar:GetBool() and IsFireDamage then
-		D.ApplyPlayersDamage(self, dmginfo)
+		applyPlayersDamage(self, dmginfo)
 	end
 
 	if self.IsArmored then
 		if not IsSmallDamage then
-			D.HandleRayDamage(self, dmginfo)
+			handleRayDamage(self, dmginfo)
 		end
 	else
-		D.HandleRayDamage(self, dmginfo)
+		handleRayDamage(self, dmginfo)
 	end
 
 	if IsSmallDamage and self.IsArmored then return end
 
 	if IsExplosion and (OldHP / MaxHP) < 0.3 and math.random() < 0.4 then
 		if not self:IsOnFire() then
-			D.IgniteLimited(self)
-			Reforger.DevLog("Inner Fire started on Simfphys vehicle!")
+			ignitelimited(self)
+			devlog("Inner Fire started on Simfphys vehicle!")
 		end
 	end
 
@@ -87,7 +106,7 @@ local function Simfphys_OnTakeDamage(self, dmginfo)
 	end
 
 	if (NewHP / MaxHP) < 0.135 and not self:IsOnFire() and not IsExplosion then
-		D.IgniteLimited(self)
+		ignitelimited(self)
 	end
 end
 
@@ -107,7 +126,7 @@ end
 local COLLISION_DAMAGE_SCALE = 0.15
 
 local function Simfphys_PhysicsCollide(self, data, physobj)
-	if hook.Run("simfphysPhysicsCollide", self, data, physobj) then return end
+	if runhook("simfphysPhysicsCollide", self, data, physobj) then return end
 
 	local hitEnt = data.HitEntity
 
@@ -134,7 +153,7 @@ local function Simfphys_PhysicsCollide(self, data, physobj)
 			dmginfo:SetInflictor(self)
 			dmginfo:SetDamagePosition(pos)
 
-			D.HandleCollisionDamage(self, dmginfo)
+			handleCollisionDamage(self, dmginfo)
 
 			self:TakeDamageInfo(dmginfo)
 		end
@@ -169,14 +188,14 @@ local function Simfphys_RewriteDamageSystem(simfphys_obj)
 
 	-- Rewrite projectile damage
 	if class == "simfphys_tankprojectile" then
-		Reforger.DevLog(string.gsub("Overriding damage system for: +", "+", tostring(simfphys_obj)))
+		devlog(string.gsub("Overriding damage system for: +", "+", tostring(simfphys_obj)))
 		Simfphys_RewriteProjectileDamage(simfphys_obj)
 		return
 	end
 
 	-- Rewriting gibs (if allowed)
 	if class == "gmod_sent_vehicle_fphysics_gib" and simfphys_obj.MakeSound == true then
-		local allowgb = Reforger.SafeInt("gibs.keep") > 0
+		local allowgb = safeint("gibs.keep") > 0
 
 		if allowgb then
 			simfphys_obj.reforgerGib = true
@@ -188,7 +207,7 @@ local function Simfphys_RewriteDamageSystem(simfphys_obj)
 
 	-- Main vehicle rewrite
 	if simfphys_obj.IsSimfphyscar then
-		Reforger.DevLog(string.gsub("Overriding damage system for: +", "+", tostring(simfphys_obj)))
+		devlog(string.gsub("Overriding damage system for: +", "+", tostring(simfphys_obj)))
 
 		simfphys_obj.OnTakeDamage = Simfphys_OnTakeDamage
 		simfphys_obj.PhysicsCollide = Simfphys_PhysicsCollide
@@ -196,7 +215,7 @@ local function Simfphys_RewriteDamageSystem(simfphys_obj)
 		local repairfunc = simfphys_obj.OnRepaired
 		simfphys_obj.OnRepaired = function(self)
 			self:RemoveAllDecals()
-			D.StopLimitedFire(self)
+			stopignitelimited(self)
 
 			if repairfunc then
 				repairfunc(self)

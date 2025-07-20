@@ -1,23 +1,31 @@
--- Convars
-AddCSLuaFile("reforger_bdamage_convars.lua")
-include("reforger_bdamage_convars.lua")
+if CLIENT then return end -- This file is for server-side only
 
-if CLIENT then return end -- I'am overthinker
+local devlog = Reforger.DevLog
+local rafunc = Reforger.AddEntityFunction
 
--- After Reforger will Initialized addon starts working
+local gnwval = Reforger.GetNetworkValue
+local snwval = Reforger.SetNetworkValue
+
+local pcall = pcall
+local istable = istable
+local ipairs = ipairs
+local isfunction = isfunction
+local stringReplace = string.Replace
+local fileExists = file.Exists
+local timerSimple = timer.Simple
+local IsValid = IsValid
+local addhook = hook.Add
 
 local function Reforger_CheckPlayerFramework(ply)
-    timer.Simple(1, function()
+    timerSimple(1, function()
         if not IsValid(ply) then return end
 
         if not istable(_G.Reforger) then
             ply:ChatPrint("[Reforger] Required Reforger Framework is missing. Please install it here: https://steamcommunity.com/sharedfiles/filedetails/?id=3516478641")
-
-            timer.Simple(4, function() ply:SendLua([[ gui.OpenURL("https://steamcommunity.com/sharedfiles/filedetails/?id=3516478641") ]]) end)
         end
     end)
 end
-hook.Add("PlayerInitialSpawn", "Reforger.CheckPlayerFramework", Reforger_CheckPlayerFramework)
+addhook("PlayerInitialSpawn", "Reforger.CheckPlayerFramework", Reforger_CheckPlayerFramework)
 
 local function Reforger_DamageModule()
     if Reforger.Disabled == true then return end
@@ -26,26 +34,29 @@ local function Reforger_DamageModule()
     local template = "reforger_#_damage_rewrote.lua"
 
     for _, b in ipairs(bases) do
-        local path = string.Replace(template, "#", b)
-        local exists = file.Exists(path, "LUA")
+        local path = stringReplace(template, "#", b)
+        local exists = fileExists(path, "LUA")
 
         if not exists then
-            Reforger.DevLog("[WARN] File not found: " .. path)
+            devlog("[WARN] File not found: " .. path)
             continue
         end
 
         local ok, funcs = pcall(include, path)
 
         if not ok then
-            Reforger.DevLog("[ERROR] Failed to include " .. path .. ": " .. tostring(funcs))
+            devlog("[ERROR] Failed to include " .. path .. ": " .. tostring(funcs))
+            continue
+        end
+
+        if not istable(funcs) or not isfunction(funcs[1]) then
+            devlog("[WARN] Invalid return from " .. path .. ", expected table with function at index 1")
             continue
         end
 
         if istable(funcs) and isfunction(funcs[1]) then
-            Reforger.AddEntityFunction(b .. "_RewroteDamage", funcs[1])
-            Reforger.DevLog("[Reforger] Damage hook loaded: " .. b)
-        else
-            Reforger.DevLog("[WARN] Invalid return from " .. path .. ", expected table with function at index 1")
+            rafunc(b .. "_RewroteDamage", funcs[1])
+            devlog("[Reforger] Damage hook loaded: " .. b)
         end
     end
 end
@@ -53,11 +64,11 @@ end
 if not Reforger or Reforger.Disabled == true then return end
 
 local function IsPlayerBurning(ply)
-    return Reforger.GetNetworkValue(ply, "Bool", "IsBurning")
+    return gnwval(ply, "Bool", "IsBurning")
 end
 
 local function SetPlayerBurning(ply, state)
-    Reforger.SetNetworkValue(ply, "Bool", "IsBurning", state)
+    snwval(ply, "Bool", "IsBurning", state)
 end
 
 local function Reforger_PlayerBurningModule(ply, veh)
@@ -68,27 +79,28 @@ local function Reforger_PlayerBurningModule(ply, veh)
 
     if not alreadyBurning and veh:IsOnFire() then
         SetPlayerBurning(ply, true)
-        Reforger.DevLog("Player " .. ply:Nick() .. " started to burn")
+        devlog("Player " .. ply:Nick() .. " started to burn")
     end
 end
 
-local function Reforger_ResetBurnStatus(ply, veh)
+local function Reforger_ResetBurnStatus(ply)
     if not IsValid(ply) then return end
 
     if IsPlayerBurning(ply) then
         SetPlayerBurning(ply, false)
-        Reforger.DevLog("Player " .. ply:Nick() .. " stopped burning")
+        devlog("Player " .. ply:Nick() .. " stopped burning")
     end
 end
 
 local function Reforger_FreezedGibsPickup(ply, ent)
+    -- Prevent picking up reforger gibs
     if ent.reforgerGib then
         return false
     end
 end
 
-hook.Add("Reforger.Init", "Reforger.DamageModule", Reforger_DamageModule)
-hook.Add("Reforger.PlayerBurningInVehicle", "Reforger.PlayerBurningModule", Reforger_PlayerBurningModule)
-hook.Add("PlayerLeaveVehicle", "Reforger.ResetBurnStatus", Reforger_ResetBurnStatus)
-hook.Add("PlayerSpawn", "Reforger.ResetBurnStatusOnRespawn", Reforger_ResetBurnStatus)
-hook.Add("PhysgunPickup", "Reforger.FreezedGibsPickup", Reforger_FreezedGibsPickup)
+addhook("Reforger.Init", "Reforger.DamageModule", Reforger_DamageModule)
+addhook("Reforger.PlayerBurningInVehicle", "Reforger.PlayerBurningModule", Reforger_PlayerBurningModule)
+addhook("PlayerLeaveVehicle", "Reforger.ResetBurnStatus", Reforger_ResetBurnStatus)
+addhook("PlayerSpawn", "Reforger.ResetBurnStatusOnRespawn", Reforger_ResetBurnStatus)
+addhook("PhysgunPickup", "Reforger.FreezedGibsPickup", Reforger_FreezedGibsPickup)
