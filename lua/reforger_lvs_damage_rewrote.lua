@@ -260,7 +260,7 @@ local function LVS_CalcDamage(self, dmginfo)
 
     --------------------------- In LVS standard ammorack gives 100 damage when it destroyes
     --------------------------- Means ammorack doesn't exists but is giving damage (bug that I found while playing with tanks)
-    if isAmmorackDestroyed or (vehType == "armored" and isFireDamage and dmginfo:GetDamage() >= 75) then
+    if isAmmorackDestroyed or (vehType == "armored" and isFireDamage and dmginfo:GetDamage() >= 50) then
         if vehicleIsDying then
             damage = damage * 1.25
         elseif math.random() < 0.35 then
