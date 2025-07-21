@@ -48,9 +48,13 @@ local LVS_InstantKillChance = {
     light = 0.85,
     plane = 0.7,
     helicopter = 0.5,
-    armored = 0.2,
+    armored = 0,
     undefined = 1
 }
+
+local innerFireChance = Reforger.Convar("damage.chance.innerfire")
+local explodeChanceArmored = Reforger.Convar("damage.chance.explode.armored")
+local explodeChanceUnarmored = Reforger.Convar("damage.chance.explode.unarmored")
 
 local function LVS_OnTakeDamage(self, dmginfo)
     if not self:IsInitialized() then return end
@@ -62,14 +66,26 @@ local function LVS_OnTakeDamage(self, dmginfo)
 	self:OnAITakeDamage( dmginfo )
 end
 
+local function IsArmored(ent)
+    return IsValid(ent) and ent.reforgerType == "armored"
+end
+
 local function IsAircraft(ent)
     if not IsValid(ent) then return false end
-    local vehType = getvehtype(self)
+    local vehType = getvehtype(ent)
     return vehType == "plane" or vehType == "helicopter"
 end
 
 local function LVS_TryStartInnerFire(self, repeatCount)
     if not IsValid(self) or self:IsOnFire() then return false end
+    local innerFireChance = innerFireChance:GetFloat() or 0.5
+
+    if math.random() < innerFireChance then
+        devlog("Inner Fire chance passed for ", self)
+    else
+        devlog("Inner Fire chance failed for ", self)
+        return false
+    end
 
     local pre = runhook("Reforger.LVS_CanStartInnerFire", self, repeatCount)
     if pre == false then return end
@@ -231,6 +247,8 @@ local function LVS_CalcDamage(self, dmginfo)
 
     if not criticalHit and isExplosion and originalDamage > curHP then
         criticalHit = true
+    
+        self:StartInnerFire(5)
     end
 
     rotorsGetDamage(self, dmginfo)
@@ -297,11 +315,9 @@ local function LVS_CalcDamage(self, dmginfo)
 
     --------------------------- In LVS standard ammorack gives 100 damage when it destroyes
     --------------------------- Means ammorack doesn't exists but is giving damage (bug that I found while playing with tanks)
-    if isAmmorackDestroyed or (vehType == "armored" and isFireDamage and dmginfo:GetDamage() >= 50) then
+    if isAmmorackDestroyed or (vehType == "armored" and isFireDamage and dmginfo:GetDamage() >= 70) then
         if vehicleIsDying then
-            damage = damage * 1.25
-        elseif math.random() < 0.35 then
-            damage = damage * 5
+            damage = damage * 1
         else
             damage = damage * 0.75
         end
@@ -374,9 +390,18 @@ local function LVS_CalcDamage(self, dmginfo)
 
         self.GonnaDestroyed = true
 
-        explodeDelay = self:PreExplode(explodeDelay)
+        local chance = math.random()
+        local armChance = explodeChanceArmored:GetFloat() or 0.5
+        local unarmChance = explodeChanceUnarmored:GetFloat() or 0.5
+        local isarmored = IsArmored(self)
 
-        LVS_ExplodeWithDelay(self, explodeDelay, isCollisionDamage)
+        if isInstantKill and isAmmorackDestroyed or (isarmored and chance < armChance) or not isarmored and chance < unarmChance then
+            explodeDelay = self:PreExplode(explodeDelay)
+            LVS_ExplodeWithDelay(self, explodeDelay, isCollisionDamage)
+        else
+            self:SetDestroyed(isCollisionDamage)
+            runhook("Reforger.LVS_VehicleNotExploded", self, dmginfo)
+        end
     end
 end
 
@@ -396,7 +421,7 @@ local function LVS_RewriteDamageSystem(ent)
 
             originalRemoveDecals(self)
 
-            if vehType == "light" or vehType == "plane" or vehType == "helicopter" then
+            if vehType == "light" or IsAircraft(self) then
                 local wheels = self.GetWheels and self:GetWheels() or {}
                 if istable(wheels) then
                     for _, wheel in ipairs(wheels) do
