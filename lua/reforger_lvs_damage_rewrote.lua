@@ -374,9 +374,9 @@ local function LVS_CalcDamage(self, dmginfo)
         devlog("Explosion roll:", chance, " | Threshold:", isarmored and armChance or unarmChance)
 
         local shouldNotExplode = (isarmored and chance >= armChance) or (not isarmored and chance >= unarmChance)
-        if not isAmmorackDestroyed and shouldNotExplode then
+        if not isAmmorackDestroyed and shouldNotExplode and not IsAircraft(self) then
             LVS_HandleGib(self)
-            
+
             self.NotExploded = true
             self.Explode = function(slf)
                 if not IsValid(slf) then return end
