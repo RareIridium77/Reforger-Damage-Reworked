@@ -128,6 +128,41 @@ local function LVS_TryStopInnerFire(self)
     return false
 end
 
+local function LVS_HandleGib(self)
+    local allowgb = safeint("gibs.keep") == 1
+    local allowfreeze = safeint("gibs.freeze") == 1
+    local delaygb = safeint("gibs.delay")
+    
+    if allowgb then
+        self.reforgerGib = true
+        self.Think = function() return false end
+    else
+        timer.Simple(1, function()
+            if not IsValid(self) then return end
+            self.RemoveTimer = CurTime() + delaygb
+            self.Think = function(slf)
+                if self.RemoveTimer < CurTime() then
+                    self:Remove()
+                    return false
+                end
+
+                slf:NextThink( CurTime() + 0.5 )
+                return true
+            end
+        end)
+    end
+
+    if allowfreeze then
+        timer.Simple(5, function()
+            if not IsValid(self) then return end
+            local physObj = self:GetPhysicsObject()
+            if IsValid(physObj) then
+                physObj:EnableMotion(false)
+            end
+        end)
+    end
+end
+
 local function LVS_ExplodeWithDelay(self, delay, isCollision)
     timer.Simple(delay, function()
         if not IsValid(self) then return end
@@ -137,38 +172,7 @@ local function LVS_ExplodeWithDelay(self, delay, isCollision)
         self:SetDestroyed(isCollision)
         self:Explode()
 
-        local allowgb = safeint("gibs.keep") == 1
-        local allowfreeze = safeint("gibs.freeze") == 1
-        local delaygb = safeint("gibs.delay")
-        
-        if allowgb then
-            self.reforgerGib = true
-            self.Think = function() return false end
-        else
-            timer.Simple(1, function()
-                if not IsValid(self) then return end
-                self.RemoveTimer = CurTime() + delaygb
-                self.Think = function(slf)
-                    if self.RemoveTimer < CurTime() then
-                        self:Remove()
-                        return false
-                    end
-
-                    slf:NextThink( CurTime() + 0.5 )
-                    return true
-                end
-            end)
-        end
-
-        if allowfreeze then
-            timer.Simple(5, function()
-                if not IsValid(self) then return end
-                local physObj = self:GetPhysicsObject()
-                if IsValid(physObj) then
-                    physObj:EnableMotion(false)
-                end
-            end)
-        end
+        LVS_HandleGib(self)
     end)
 end
 
@@ -180,7 +184,6 @@ local function LVS_StartReduceDamage(self, damage, vehType, isExplosion)
 end
 
 local function LVS_CalcDamage(self, dmginfo)
-    if self.GonnaDestroyed == true then return end
     if dmginfo:IsDamageType(self.DSArmorIgnoreDamageType) then return end
 
     local originalDamage = dmginfo:GetDamage()
@@ -209,6 +212,14 @@ local function LVS_CalcDamage(self, dmginfo)
     
     local criticalHit       = false
     local isMine            = false
+
+    if self.NotExploded then
+        if isFireDamage then
+            applyPlayersDamage(self, dmginfo)
+        end
+        return 
+    end
+    if self.GonnaDestroyed then return end
 
     if IsValid(attacker) and IsValid(inflictor) then
         isMine = attacker.Mine or inflictor.Mine or attacker:GetNWBool("IsMine") or inflictor:GetNWBool("IsMine")
@@ -315,11 +326,11 @@ local function LVS_CalcDamage(self, dmginfo)
 
     --------------------------- In LVS standard ammorack gives 100 damage when it destroyes
     --------------------------- Means ammorack doesn't exists but is giving damage (bug that I found while playing with tanks)
-    if isAmmorackDestroyed or (vehType == "armored" and isFireDamage and dmginfo:GetDamage() >= 70) then
+    if isAmmorackDestroyed or (vehType == "armored" and isFireDamage and dmginfo:GetDamage() >= 50) then
         if vehicleIsDying then
             damage = damage * 1
         else
-            damage = damage * 0.75
+            damage = damage * 1.5
         end
 
         if not isMine and math.random() < 0.25 then self:StartInnerFire(5) end
@@ -335,6 +346,8 @@ local function LVS_CalcDamage(self, dmginfo)
     if self:IsDestroyed() then return end
 
     if IsValid(attacker) and attacker:IsPlayer() and not isFireDamage then
+        self.FinalAttacker = attacker
+
         net.Start("lvs_hitmarker")
             net.WriteBool(criticalHit)
         net.Send(attacker)
@@ -346,15 +359,38 @@ local function LVS_CalcDamage(self, dmginfo)
         net.Send(self:GetEveryone())
     end
 
-    if IsValid(attacker) and attacker:IsPlayer() then
-        self.FinalAttacker = attacker
-    end
-
     if engineIsDying and (newHP / maxHP) < 0.1 then ignitelimited(self) end
 
     if self.GonnaDestroyed == true then return end
 
+    local chance = math.random()
+    local armChance = explodeChanceArmored:GetFloat() or 0.5
+    local unarmChance = explodeChanceUnarmored:GetFloat() or 0.5
+    local isarmored = IsArmored(self)
+
     if newHP <= 0 then
+        self.GonnaDestroyed = true
+
+        devlog("Explosion roll:", chance, " | Threshold:", isarmored and armChance or unarmChance)
+
+        local shouldNotExplode = (isarmored and chance >= armChance) or (not isarmored and chance >= unarmChance)
+        if not isAmmorackDestroyed and shouldNotExplode then
+            LVS_HandleGib(self)
+            
+            self.NotExploded = true
+            self.Explode = function(slf)
+                if not IsValid(slf) then return end
+                slf:StartInnerFire(8)
+            end
+
+            self:SetDestroyed(true)
+            self:StartInnerFire(4)
+            self:StopEngine()
+
+            runhook("Reforger.LVS_VehicleNotExploded", self, dmginfo)
+            return
+        end
+
         self.FinalInflictor = inflictor
 
         self:ClearPDS()
@@ -388,20 +424,8 @@ local function LVS_CalcDamage(self, dmginfo)
             end
         end
 
-        self.GonnaDestroyed = true
-
-        local chance = math.random()
-        local armChance = explodeChanceArmored:GetFloat() or 0.5
-        local unarmChance = explodeChanceUnarmored:GetFloat() or 0.5
-        local isarmored = IsArmored(self)
-
-        if isInstantKill and isAmmorackDestroyed or (isarmored and chance < armChance) or not isarmored and chance < unarmChance then
-            explodeDelay = self:PreExplode(explodeDelay)
-            LVS_ExplodeWithDelay(self, explodeDelay, isCollisionDamage)
-        else
-            self:SetDestroyed(isCollisionDamage)
-            runhook("Reforger.LVS_VehicleNotExploded", self, dmginfo)
-        end
+        explodeDelay = self:PreExplode(explodeDelay)
+        LVS_ExplodeWithDelay(self, explodeDelay, isCollisionDamage)
     end
 end
 
@@ -472,5 +496,17 @@ local function LVS_RewriteDamageSystem(ent)
         if oldRepaired then oldRepaired(self, ...) end
     end
 end
+
+hook.Add("LVS.IsEngineStartAllowed", "Reforger.LVS_CannotStartEngineNotExploded", function(veh)
+    if veh.NotExploded and veh:IsValid() then
+        return false
+    end
+end)
+
+hook.Add("LVS.CanPlayerDrive", "Reforger.LVS_CannotDriveNotExploded", function(ply, veh)
+    if veh.NotExploded and veh:IsValid() then
+        return false
+    end
+end)
 
 return {LVS_RewriteDamageSystem}
