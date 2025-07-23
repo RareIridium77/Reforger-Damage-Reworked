@@ -16,7 +16,7 @@ local issmalldamage = RDamage.IsSmallDamageType
 local handleCollisionDamage = RDamage.HandleCollisionDamage
 local applyPlayersDamage = RDamage.ApplyPlayersDamage
 local handleRayDamage = RDamage.HandleRayDamage
-local rotorsTakeDamage = Rotors.RotorsTakeDamage
+local rotorsGetDamage = Rotors.RotorsGetDamage
 
 local devlog   = Reforger.DevLog
 local safeint  = Reforger.SafeInt
@@ -75,7 +75,7 @@ local function Glide_OnTakeDamage( self, dmginfo )
     -- End
 
     --  Other Damage
-    rotorsTakeDamage(self, dmginfo)
+    rotorsGetDamage(self, dmginfo)
     handleCollisionDamage(self, dmginfo)
 
     if IsFireDamage then
