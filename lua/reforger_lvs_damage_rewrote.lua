@@ -19,6 +19,7 @@ local iscollisiondamage = RDamage.IsCollisionDamageType
 local applyPlayersDamage = RDamage.ApplyPlayersDamage
 local handleRayDamage = RDamage.HandleRayDamage
 local damageParts = RDamage.DamageParts
+local fixDamageForce = RDamage.FixDamageForce
 
 local damageAmmoracks = Armored.DamageAmmoracks
 local isammorackdestroyed = Armored.IsAmmorackDestroyed
@@ -58,6 +59,10 @@ local explodeChanceUnarmored = Reforger.Convar("damage.chance.explode.unarmored"
 
 local function LVS_OnTakeDamage(self, dmginfo)
     if not self:IsInitialized() then return end
+
+    local attacker = dmginfo:GetAttacker()
+
+    fixDamageForce(dmginfo, attacker, self)
 
     self:CalcShieldDamage( dmginfo )
 	self:CalcDamage( dmginfo )
@@ -244,7 +249,9 @@ local function LVS_CalcDamage(self, dmginfo)
 
     if damage <= 0 then return end
 
-    if dmginfo:GetDamageForce():Length() < self.DSArmorIgnoreForce and not isFireDamage then return end
+    local damageForce = dmginfo:GetDamageForce()
+
+    if damageForce:Length() < self.DSArmorIgnoreForce and not isFireDamage then return end
     
     if bit.band(dmgType, DMG_AIRBOAT) then damage = math.Rand(0.085, 0.4) * damage end -- can add some random for nostalgia
 

@@ -11,6 +11,7 @@ local stopignitelimited = RDamage.StopLimitedFire
 local handleRayDamage = RDamage.HandleRayDamage
 local handleCollisionDamage = RDamage.HandleCollisionDamage
 local applyPlayersDamage = RDamage.ApplyPlayersDamage
+local fixDamageForce = RDamage.FixDamageForce
 
 local devlog   = Reforger.DevLog
 local safeint  = Reforger.SafeInt
@@ -43,8 +44,8 @@ local function Simfphys_OnTakeDamage(self, dmginfo)
 	local DamagePos     = dmginfo:GetDamagePosition()
 	local Type          = dmginfo:GetDamageType()
 	local IsExplosion   = dmginfo:IsExplosionDamage()
-	local IsFireDamage  = RDamage.IsFireDamageType(self, Type)
-	local IsSmallDamage = RDamage.IsSmallDamageType(Type)
+	local IsFireDamage  = isfiredamage(self, Type)
+	local IsSmallDamage = issmalldamage(Type)
 
 	local CriticalHit   = false
 
@@ -53,6 +54,8 @@ local function Simfphys_OnTakeDamage(self, dmginfo)
 
 	self.LastAttacker = dmginfo:GetAttacker()
 	self.LastInflictor = dmginfo:GetInflictor()
+
+	fixDamageForce(dmginfo, self.LastAttacker, self)
 
 	net.Start("simfphys_spritedamage")
 		net.WriteEntity(self)

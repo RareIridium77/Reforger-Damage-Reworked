@@ -16,6 +16,8 @@ local issmalldamage = RDamage.IsSmallDamageType
 local handleCollisionDamage = RDamage.HandleCollisionDamage
 local applyPlayersDamage = RDamage.ApplyPlayersDamage
 local handleRayDamage = RDamage.HandleRayDamage
+local fixDamageForce = RDamage.FixDamageForce
+
 local rotorsGetDamage = Rotors.RotorsGetDamage
 
 local devlog   = Reforger.DevLog
@@ -43,6 +45,10 @@ end
 
 local function Glide_OnTakeDamage( self, dmginfo )
     if self.hasExploded then return end
+
+    local Attacker = dmginfo:GetAttacker()
+
+    fixDamageForce(dmginfo, Attacker, self)
 
     local Damage = dmginfo:GetDamage()
     if Damage <= 0 then return end
@@ -114,7 +120,7 @@ local function Glide_OnTakeDamage( self, dmginfo )
 
     -- End
 
-    self.lastDamageAttacker = dmginfo:GetAttacker()
+    self.lastDamageAttacker = Attacker
     self.lastDamageInflictor = dmginfo:GetInflictor()
 
     local fire_condition = false
