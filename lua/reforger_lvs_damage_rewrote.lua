@@ -287,6 +287,7 @@ local function LVS_CalcDamage(self, dmginfo)
 
         if math.random() < 0.5 then
             damageAmmoracks(self, dmginfo)
+            devlog("Ammmo rack take damage", dmginfo)
         end
 
         if math.random() < 0.85 then
@@ -333,7 +334,7 @@ local function LVS_CalcDamage(self, dmginfo)
 
     --------------------------- In LVS standard ammorack gives 100 damage when it destroyes
     --------------------------- Means ammorack doesn't exists but is giving damage (bug that I found while playing with tanks)
-    if isAmmorackDestroyed or (vehType == "armored" and isFireDamage and dmginfo:GetDamage() >= 50) then
+    if isAmmorackDestroyed or (vehType == "armored" and isFireDamage and originalDamage >= 50) then
         if vehicleIsDying then
             damage = damage * 1
         else
@@ -381,7 +382,7 @@ local function LVS_CalcDamage(self, dmginfo)
         devlog("Explosion roll:", chance, " | Threshold:", isarmored and armChance or unarmChance)
 
         local shouldNotExplode = (isarmored and chance >= armChance) or (not isarmored and chance >= unarmChance)
-        if not isAmmorackDestroyed and shouldNotExplode and not IsAircraft(self) then
+        if not isAmmorackDestroyed and not isFireDamage and shouldNotExplode and not IsAircraft(self) then
             LVS_HandleGib(self)
 
             self.NotExploded = true
