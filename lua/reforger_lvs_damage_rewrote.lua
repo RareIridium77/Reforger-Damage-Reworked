@@ -14,6 +14,7 @@ local stopignitelimited = RDamage.StopLimitedFire
 
 local isfiredamage = RDamage.IsFireDamageType
 local issmalldamage = RDamage.IsSmallDamageType
+local ismeleedamage = RDamage.IsMeleeDamageType
 local iscollisiondamage = RDamage.IsCollisionDamageType
 
 local applyPlayersDamage = RDamage.ApplyPlayersDamage
@@ -31,11 +32,15 @@ local devlog   = Reforger.DevLog
 local safeint  = Reforger.SafeInt
 local safefloat = Reforger.SafeFloat
 
+local pairEntityAll = Reforger.Scanners.PairEntityAll
+
 local runhook  = hook.Run
 
 local istable  = istable
 local isnumber = isnumber
 local IsValid  = IsValid
+local rand     = math.Rand
+local randm    = math.random
 
 local LVS_DamageReducing = {
     light = 1.25,
@@ -56,6 +61,10 @@ local LVS_InstantKillChance = {
 local innerFireChance = Reforger.Convar("damage.chance.innerfire")
 local explodeChanceArmored = Reforger.Convar("damage.chance.explode.armored")
 local explodeChanceUnarmored = Reforger.Convar("damage.chance.explode.unarmored")
+
+local function IsValidPlayer(a)
+    return IsValid(a) and a:IsPlayer()
+end
 
 local function LVS_OnTakeDamage(self, dmginfo)
     if not self:IsInitialized() then return end
@@ -85,7 +94,7 @@ local function LVS_TryStartInnerFire(self, repeatCount)
     if not IsValid(self) or self:IsOnFire() then return false end
     local innerFireChance = innerFireChance:GetFloat() or 0.5
 
-    if math.random() < innerFireChance then
+    if randm() < innerFireChance then
         devlog("Inner Fire chance passed for ", self)
     else
         devlog("Inner Fire chance failed for ", self)
@@ -205,12 +214,17 @@ local function LVS_CalcDamage(self, dmginfo)
 
     local vehType = getvehtype(self) -- always return or cahce or recache
     local dmgType = dmginfo:GetDamageType()
+    local isArmored = IsArmored(self)
 
     local isExplosion       = dmginfo:IsExplosionDamage()
     
     local isFireDamage      = isfiredamage(self, dmgType)
     local isCollisionDamage = iscollisiondamage(dmgType)
     local isSmallDamage     = issmalldamage(dmgType)
+    local isMeleeDamage     = ismeleedamage(dmgType)
+
+    if isArmored and isSmallDamage then return end
+    if not isArmored and isMeleeDamage then return end
 
     local attacker          = dmginfo:GetAttacker()
     local inflictor         = dmginfo:GetInflictor()
@@ -218,13 +232,31 @@ local function LVS_CalcDamage(self, dmginfo)
     local criticalHit       = false
     local isMine            = false
 
-    if self.NotExploded then
+    if self.NotExploded and not self.GonnaExplode then
+        if isFireDamage and originalDamage >= 70 and self.ReforgerExplode then
+            self.ExplodedAlready = false
+            timer.Simple(rand(5, 20), function()
+                if not IsValid(self) then return end
+                self:ReforgerExplode()
+            end)
+            self.GonnaExplode = true
+            return
+        end
+
         if isFireDamage then
+            local pDamage = DamageInfo()
+            pDamage:SetDamage(rand(1, 5))
+            pDamage:SetDamagePosition(self:GetPos())
+            pDamage:SetDamageForce(VectorRand(1, 2))
+            pDamage:SetDamageType(DMG_AIRBOAT)
+
             applyPlayersDamage(self, dmginfo)
+            damageParts(self, pDamage)
         end
         return 
     end
-    if self.GonnaDestroyed then return end
+
+    if self.GonnaDestroyed or self.ExplodedAlready then return end
 
     if IsValid(attacker) and IsValid(inflictor) then
         isMine = attacker.Mine or inflictor.Mine or attacker:GetNWBool("IsMine") or inflictor:GetNWBool("IsMine")
@@ -253,12 +285,12 @@ local function LVS_CalcDamage(self, dmginfo)
 
     if damageForce:Length() < self.DSArmorIgnoreForce and not isFireDamage then return end
     
-    if bit.band(dmgType, DMG_AIRBOAT) then damage = math.Rand(0.085, 0.4) * damage end -- can add some random for nostalgia
+    if bit.band(dmgType, DMG_AIRBOAT) then damage = rand(0.085, 0.4) * damage end -- can add some random for nostalgia
 
     if not isCollisionDamage then
         criticalHit = self:CalcComponentDamage(dmginfo)
 
-        if not isMine and (isExplosion or curHP < -10) and (engineIsDying or vehicleIsDying) and math.random() < 0.5 then
+        if not isMine and (isExplosion or curHP < -10) and (engineIsDying or vehicleIsDying) and randm() < 0.5 then
             self:StartInnerFire(1)
         end
     end
@@ -271,33 +303,33 @@ local function LVS_CalcDamage(self, dmginfo)
 
     rotorsGetDamage(self, dmginfo)
     handleRayDamage(self, dmginfo)
-    
-    local isAmmorackDestroyed = isammorackdestroyed(self)
 
     if isFireDamage and not isMine then
         self:ReforgerCleanDecals() -- for optimization of VFire
 
         local shouldDamagePlayers =
-            (vehType == "armored" and self:IsOnFire()) or
-            (vehType ~= "armored")
+            (isArmored and self:IsOnFire()) or
+            (not isArmored)
 
         if shouldDamagePlayers then
             applyPlayersDamage(self, dmginfo)
         end
 
-        if math.random() < 0.5 then
+        if randm() < 0.5 then
             damageAmmoracks(self, dmginfo)
             devlog("Ammmo rack take damage", dmginfo)
         end
 
-        if math.random() < 0.85 then
+        if randm() < 0.85 then
             local partDamage = math.min(0.5 * damage, 100)
             damageParts(self, partDamage)
         end
     end
-
+    
+    local isAmmorackDestroyed = isammorackdestroyed(self)
+    
     -- One shot fix or One explode fix. (Example mine TM-62 from SW bombs can one shot everything)
-    if vehType == "armored" then
+    if isArmored then
         local shouldClamp = false
 
         if damage > curHP and not vehicleIsDying and not isAmmorackDestroyed then
@@ -317,7 +349,7 @@ local function LVS_CalcDamage(self, dmginfo)
     -- Damage Clamping
     if not isAmmorackDestroyed and not self:IsOnFire() and (engineIsDying or vehicleIsDying) then
         -- if damage is more than curHp for 60% then not damage components
-        if damage < (curHP * 0.6) and math.random() < 0.5 and not isMine then
+        if damage < (curHP * 0.6) and randm() < 0.5 and not isMine then
             local partDamage = math.min(0.95 * damage, 100)
             damageParts(self, partDamage)
         end
@@ -334,18 +366,21 @@ local function LVS_CalcDamage(self, dmginfo)
 
     --------------------------- In LVS standard ammorack gives 100 damage when it destroyes
     --------------------------- Means ammorack doesn't exists but is giving damage (bug that I found while playing with tanks)
-    if isAmmorackDestroyed or (vehType == "armored" and isFireDamage and originalDamage >= 50) then
+
+    if not isAmmorackDestroyed then
+        isAmmorackDestroyed = (isArmored and isFireDamage and originalDamage >= 70)
+    end
+
+    if isAmmorackDestroyed then
         if vehicleIsDying then
             damage = damage * 1
         else
             damage = damage * 1.5
         end
 
-        if not isMine and math.random() < 0.25 then self:StartInnerFire(5) end
-        isAmmorackDestroyed = true
+        if not isMine and randm() < 0.25 then self:StartInnerFire(5) end
     end
     
-
     -- Apply damage
     local newHP = math.Clamp(curHP - damage, -maxHP, maxHP)
 
@@ -353,9 +388,9 @@ local function LVS_CalcDamage(self, dmginfo)
 
     if self:IsDestroyed() then return end
 
-    if IsValid(attacker) and attacker:IsPlayer() and not isFireDamage then
-        self.FinalAttacker = attacker
+    local isValidAttacker = IsValidPlayer(attacker)
 
+    if isValidAttacker and not isFireDamage then
         net.Start("lvs_hitmarker")
             net.WriteBool(criticalHit)
         net.Send(attacker)
@@ -371,28 +406,46 @@ local function LVS_CalcDamage(self, dmginfo)
 
     if self.GonnaDestroyed == true then return end
 
-    local chance = math.random()
+    local chance = randm()
     local armChance = explodeChanceArmored:GetFloat() or 0.5
     local unarmChance = explodeChanceUnarmored:GetFloat() or 0.5
-    local isarmored = IsArmored(self)
 
     if newHP <= 0 then
         self.GonnaDestroyed = true
 
-        devlog("Explosion roll:", chance, " | Threshold:", isarmored and armChance or unarmChance)
+        if isValidAttacker then self.FinalAttacker = attacker end
 
-        local shouldNotExplode = (isarmored and chance >= armChance) or (not isarmored and chance >= unarmChance)
-        if not isAmmorackDestroyed and not isFireDamage and shouldNotExplode and not IsAircraft(self) then
+        devlog("Explosion roll:", chance, " | Threshold:", isArmored and armChance or unarmChance)
+
+        local shouldNotExplode = (isArmored and chance >= armChance) or (not isArmored and chance >= unarmChance)
+        if not isFireDamage and shouldNotExplode and not IsAircraft(self) then
             LVS_HandleGib(self)
 
             self.NotExploded = true
-            self.Explode = function(slf)
-                if not IsValid(slf) then return end
-                slf:StartInnerFire(8)
+            self:SetAI(false)
+            self:SetAIGunners(false)
+            self:StartInnerFire(8)
+            
+            self:PreExplode(1)
+
+            local soundEmitters = pairEntityAll(self, "lvs_soundemitter")
+
+            for _, sEmitter in pairs(soundEmitters) do
+                if IsValid(sEmitter) then
+                    sEmitter:Stop()
+                end
             end
 
+            self.ReforgerExplode = self.Explode
+            self.Explode = function(self)
+                if self.ExplodedAlready then return end
+
+                self.ExplodedAlready = true
+            end
+            
+            self.OnMaintenance = function() end
+
             self:SetDestroyed(true)
-            self:StartInnerFire(4)
             self:StopEngine()
 
             runhook("Reforger.LVS_VehicleNotExploded", self, dmginfo)
@@ -403,12 +456,12 @@ local function LVS_CalcDamage(self, dmginfo)
 
         self:ClearPDS()
 
-        if IsValid(attacker) and attacker:IsPlayer() then
+        if isValidAttacker then
             net.Start("lvs_killmarker")
             net.Send(attacker)
         end
 
-        local isInstantKill = (isExplosion and math.random() < LVS_InstantKillChance[vehType]) or originalDamage > maxHP
+        local isInstantKill = (isExplosion and randm() < LVS_InstantKillChance[vehType]) or originalDamage > maxHP
         local explodeDelay = math.Clamp((self:GetVelocity():Length() - 200) / 200, 1.5, 16)
 
         if isInstantKill then
@@ -420,14 +473,14 @@ local function LVS_CalcDamage(self, dmginfo)
                 self:StartInnerFire(1)
             end
 
-            if vehType == "armored" then
+            if isArmored then
                 if isFireDamage and not isAmmorackDestroyed then
                     explodeDelay = (explodeDelay + 1) * 4
                 end
 
                 if not isAmmorackDestroyed then
                     self:StartInnerFire(4)
-                    explodeDelay = math.Rand(10, 15)
+                    explodeDelay = rand(10, 15)
                 end
             end
         end
@@ -504,6 +557,29 @@ local function LVS_RewriteDamageSystem(ent)
         if oldRepaired then oldRepaired(self, ...) end
     end
 end
+
+hook.Add("Reforger.LVS_CannotEnterNotExploded", "Reforger.LVS_NotExplodedVehicleMsg", function(ply)
+    if IsValidPlayer(ply) then
+        ply:ChatPrint("Cannot enter this vehicle. It's destroyed.")
+    end
+end)
+
+hook.Add("CanPlayerEnterVehicle", "Reforger.LVS_CannotEnterVehicle", function(ply, veh)
+    local pod = veh
+    local podParent = pod:GetParent()
+
+    if pod.LVS and pod.NotExploded then
+        runhook("Reforger.LVS_CannotEnterNotExploded", ply, veh)
+        return false 
+    end
+
+    if IsValid(podParent) and podParent.LVS and podParent.NotExploded then
+        runhook("Reforger.LVS_CannotEnterNotExploded", ply, veh)
+        return false 
+    end
+
+    return true
+end)
 
 hook.Add("LVS.IsEngineStartAllowed", "Reforger.LVS_CannotStartEngineNotExploded", function(veh)
     if veh.NotExploded and veh:IsValid() then

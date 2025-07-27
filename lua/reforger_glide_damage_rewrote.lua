@@ -12,6 +12,7 @@ local stopignitelimited = RDamage.StopLimitedFire
 local isfiredamage = RDamage.IsFireDamageType
 local iscollisiondamage = RDamage.IsCollisionDamageType
 local issmalldamage = RDamage.IsSmallDamageType
+local ismeleedamage = RDamage.IsMeleeDamageType
 
 local handleCollisionDamage = RDamage.HandleCollisionDamage
 local applyPlayersDamage = RDamage.ApplyPlayersDamage
@@ -61,6 +62,7 @@ local function Glide_OnTakeDamage( self, dmginfo )
     local IsFireDamage      = isfiredamage(self, DamageType)
     local IsCollisionDamage = iscollisiondamage(DamageType)
     local IsSmallDamage     = issmalldamage(DamageType)
+    local IsMeleeDamage     = ismeleedamage(DamageType)
 
     -- End
     
@@ -112,6 +114,7 @@ local function Glide_OnTakeDamage( self, dmginfo )
 
     if IsSmallDamage and CurHealth <= 3.5 and CurHealth >= 1 then return end
     if IsSmallDamage and Type == "armored" then return end
+    if IsMeleeDamage and Type ~= "armored" then return end
 
     local NewHealth = math.Clamp( CurHealth - Damage, 0, self.MaxChassisHealth )
 

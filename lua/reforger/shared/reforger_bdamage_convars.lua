@@ -9,6 +9,6 @@ if SERVER and Reforger then
     createCvar("damage.mine.min", "1", "Minimum damage for mines (server)", 1, 99999)
 
     createCvar("damage.chance.innerfire", "0.5", "Enhance damage from inner fire (ONLY LVS)", 0, 1) -- ONLY LVS LVS LVS LVS LVS LVS LVS
-    createCvar("damage.chance.explode.armored", "0.5", "Chance to explode armored vehicles (ONLY LVS)", 0, 1) -- ONLY LVS LVS LVS LVS LVS LVS LVS
-    createCvar("damage.chance.explode.unarmored", "0.5", "Chance to explode unarmored vehicles (ONLY LVS)", 0, 1) -- ONLY LVS LVS LVS LVS LVS LVS LVS
+    createCvar("damage.chance.explode.armored", "0.5", "Chance to explode armored vehicles (ONLY LVS)", 0.25, 1) -- ONLY LVS LVS LVS LVS LVS LVS LVS
+    createCvar("damage.chance.explode.unarmored", "0.5", "Chance to explode unarmored vehicles (ONLY LVS)", 0.25, 1) -- ONLY LVS LVS LVS LVS LVS LVS LVS
 end
