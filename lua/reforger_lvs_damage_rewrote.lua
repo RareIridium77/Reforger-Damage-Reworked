@@ -90,11 +90,11 @@ local function IsAircraft(ent)
     return vehType == "plane" or vehType == "helicopter"
 end
 
-local function LVS_TryStartInnerFire(self, repeatCount)
+local function LVS_TryStartInnerFire(self, repeatCount, force)
     if not IsValid(self) or self:IsOnFire() then return false end
     local innerFireChance = innerFireChance:GetFloat() or 0.5
 
-    if randm() < innerFireChance then
+    if randm() < innerFireChance or force then
         devlog("Inner Fire chance passed for ", self)
     else
         devlog("Inner Fire chance failed for ", self)
@@ -102,7 +102,7 @@ local function LVS_TryStartInnerFire(self, repeatCount)
     end
 
     local pre = runhook("Reforger.LVS_CanStartInnerFire", self, repeatCount)
-    if pre == false then return end
+    if pre == false and not force then return end
 
     if not gnwval(self, "Bool", "InnerFire") then
         snwval(self, "Bool", "InnerFire", true)
@@ -231,18 +231,8 @@ local function LVS_CalcDamage(self, dmginfo)
     
     local criticalHit       = false
     local isMine            = false
-
+    
     if self.NotExploded and not self.GonnaExplode then
-        if isFireDamage and originalDamage >= 70 and self.ReforgerExplode then
-            self.ExplodedAlready = false
-            timer.Simple(rand(5, 20), function()
-                if not IsValid(self) then return end
-                self:ReforgerExplode()
-            end)
-            self.GonnaExplode = true
-            return
-        end
-
         if isFireDamage then
             local pDamage = DamageInfo()
             pDamage:SetDamage(rand(1, 5))
@@ -252,8 +242,19 @@ local function LVS_CalcDamage(self, dmginfo)
 
             applyPlayersDamage(self, dmginfo)
             damageParts(self, pDamage)
+        else  
+            handleRayDamage(self, dmginfo)
         end
-        return 
+
+        if isFireDamage and originalDamage >= 70 and self.ReforgerExplode then
+            self.ExplodedAlready = false
+            timer.Simple(rand(5, 20), function()
+                if not IsValid(self) then return end
+                self:ReforgerExplode()
+            end)
+            self.GonnaExplode = true
+        end
+        return
     end
 
     if self.GonnaDestroyed or self.ExplodedAlready then return end
@@ -301,8 +302,11 @@ local function LVS_CalcDamage(self, dmginfo)
         self:StartInnerFire(5)
     end
 
-    rotorsGetDamage(self, dmginfo)
-    handleRayDamage(self, dmginfo)
+    
+    if not isFireDamage then
+        rotorsGetDamage(self, dmginfo)
+        handleRayDamage(self, dmginfo)
+    end
 
     if isFireDamage and not isMine then
         self:ReforgerCleanDecals() -- for optimization of VFire
@@ -424,7 +428,7 @@ local function LVS_CalcDamage(self, dmginfo)
             self.NotExploded = true
             self:SetAI(false)
             self:SetAIGunners(false)
-            self:StartInnerFire(8)
+            self:StartInnerFire(8, true)
             
             self:PreExplode(1)
 
@@ -470,7 +474,7 @@ local function LVS_CalcDamage(self, dmginfo)
 
         if explodeDelay > 0 and not isMine then
             if vehType == "light" and isExplosion then
-                self:StartInnerFire(1)
+                self:StartInnerFire(1, true)
             end
 
             if isArmored then
@@ -479,7 +483,7 @@ local function LVS_CalcDamage(self, dmginfo)
                 end
 
                 if not isAmmorackDestroyed then
-                    self:StartInnerFire(4)
+                    self:StartInnerFire(4, true)
                     explodeDelay = rand(10, 15)
                 end
             end
