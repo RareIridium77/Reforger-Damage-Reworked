@@ -1,8 +1,10 @@
 if CLIENT then return end -- This file is for server-side only
 
 local devlog = Reforger.DevLog
-local rafunc = Reforger.AddEntityFunction
-
+local addmodule = Reforger.AddEntityModule
+local rafunc    = function(idf, func)
+    addmodule(Reforger, idf, func)
+end
 local gnwval = Reforger.GetNetworkValue
 local snwval = Reforger.SetNetworkValue
 
