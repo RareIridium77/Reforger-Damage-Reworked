@@ -17,6 +17,7 @@ local fileExists = file.Exists
 local timerSimple = timer.Simple
 local IsValid = IsValid
 local addhook = hook.Add
+local safeint = Reforger.SafeInt
 
 local function Reforger_CheckPlayerFramework(ply)
     timerSimple(1, function()
@@ -95,8 +96,10 @@ local function Reforger_ResetBurnStatus(ply)
 end
 
 local function Reforger_FreezedGibsPickup(ply, ent)
+    local physgunAllow = safeint("gibs.physgun", 1) == 1
+
     -- Prevent picking up reforger gibs
-    if ent.reforgerGib then
+    if ent.reforgerGib and not physgunAllow then
         return false
     end
 end

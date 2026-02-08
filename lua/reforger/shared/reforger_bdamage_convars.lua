@@ -1,5 +1,6 @@
 if SERVER and Reforger then
     local createCvar = Reforger.CreateConvar
+    createCvar("gibs.physgun", "1", "Allow to pick up vehicle gibs with physgun (server)", 0, 1) -- new feature 2026-02
     createCvar("gibs.keep", "1", "Keep vehicle gibs in your map (server)", 0, 1)
     createCvar("gibs.freeze", "0", "Freeze vehicle gibs (ONLY LVS)", 0, 1) -- ONLY LVS LVS LVS LVS LVS LVS LVS
     createCvar("gibs.delay", "30", "Delay to remove gibs (ONLY LVS)", 1, 120) -- ONLY LVS LVS LVS LVS LVS LVS LVS
